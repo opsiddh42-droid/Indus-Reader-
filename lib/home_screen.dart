@@ -3,7 +3,7 @@ import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:google_mlkit_document_scanner/google_mlkit_document_scanner.dart'; 
-import 'package:shared_preferences/shared_preferences.dart'; // NAYA: Recent PDFs save karne ke liye
+import 'package:shared_preferences/shared_preferences.dart'; 
 import 'dart:io';
 import 'dart:ui'; 
 
@@ -23,7 +23,6 @@ class _HomeScreenState extends State<HomeScreen> {
   final PdfViewerController _pdfViewerController = PdfViewerController();
   bool _isDrawingMode = false;
   
-  // Recent PDFs ki list
   List<String> _recentPdfs = [];
 
   @override
@@ -32,7 +31,6 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadRecentPdfs();
   }
 
-  // SharedPreferences se recent PDFs load karna
   Future<void> _loadRecentPdfs() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     setState(() {
@@ -40,13 +38,12 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  // Nayi PDF open hone par usko Recent list mein daalna
   Future<void> _saveToRecent(String path) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     if (!_recentPdfs.contains(path)) {
-      _recentPdfs.insert(0, path); // Sabse upar add hoga
+      _recentPdfs.insert(0, path); 
       await prefs.setStringList('recent_pdfs', _recentPdfs);
-      setState(() {}); // Screen refresh karne ke liye
+      setState(() {}); 
     }
   }
 
@@ -60,7 +57,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _reloadEditedPdf(String newPath) async {
-    await _saveToRecent(newPath); // Edited file ko bhi recent mein daalna
+    await _saveToRecent(newPath); 
     setState(() => _selectedPdf = File(newPath));
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('PDF Updated Successfully!')));
   }
@@ -70,14 +67,13 @@ class _HomeScreenState extends State<HomeScreen> {
     return page < 0 ? 0 : page;
   }
 
-  // DOCUMENT SCANNER FUNCTION (Error Fixed)
+  // --- ERROR FIXED: isGalleryImportAllowed hata diya hai ---
   Future<void> _scanDocument() async {
     try {
       final documentScanner = DocumentScanner(
         options: DocumentScannerOptions(
           mode: ScannerMode.full,
           pageLimit: 20, 
-          isGalleryImportAllowed: true, 
         ),
       );
 
@@ -245,7 +241,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
               ],
             )
-          // AGAR PDF SELECTED NAHI HAI TOH RECENT FILES DIKHAYEGA
           : Container(
               width: double.infinity,
               decoration: const BoxDecoration(

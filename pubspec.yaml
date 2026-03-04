@@ -1,0 +1,24 @@
+name: indus_reader
+description: A complete PDF Reader and Editor app with Pro features.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # PDF Viewing aur Editing ke liye
+  syncfusion_flutter_pdfviewer: ^24.1.41
+  syncfusion_flutter_pdf: ^24.1.41
+  # Files select karne ke liye
+  file_picker: ^6.1.1
+  # Recent PDFs save karne ke liye
+  shared_preferences: ^2.2.2
+  path_provider: ^2.1.2
+  # OCR aur Text extraction ke liye
+  google_mlkit_text_recognition: ^0.11.0
+
+flutter:
+  uses-material-design: true

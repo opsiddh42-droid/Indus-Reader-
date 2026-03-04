@@ -16,6 +16,8 @@ dependencies:
   shared_preferences: any
   path_provider: any
   google_mlkit_text_recognition: any
+  # NAYA: Document Scanner ke liye library add ki hai
+  google_mlkit_document_scanner: any
 
 flutter:
   uses-material-design: true

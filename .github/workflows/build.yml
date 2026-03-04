@@ -34,12 +34,13 @@ jobs:
       - name: Install Dependencies
         run: flutter pub get
 
-      # YAHAN CHANGE KIYA HAI: --no-shrink add kar diya hai
+      # YAHAN CHANGE KIYA HAI: --release ki jagah --debug kar diya hai
       - name: Build APK
-        run: flutter build apk --release --no-shrink
+        run: flutter build apk --debug
 
+      # YAHAN BHI CHANGE KIYA HAI: app-release.apk ki jagah app-debug.apk kar diya hai
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: IndusReader-APK
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: build/app/outputs/flutter-apk/app-debug.apk

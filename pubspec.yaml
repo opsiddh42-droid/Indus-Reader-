@@ -9,16 +9,13 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  # PDF Viewing aur Editing ke liye
-  syncfusion_flutter_pdfviewer: ^24.1.41
-  syncfusion_flutter_pdf: ^24.1.41
-  # Files select karne ke liye
-  file_picker: ^6.1.1
-  # Recent PDFs save karne ke liye
-  shared_preferences: ^2.2.2
-  path_provider: ^2.1.2
-  # OCR aur Text extraction ke liye
-  google_mlkit_text_recognition: ^0.11.0
+  # In sabhi libraries ko 'any' kar diya hai taaki koi version error na aaye
+  syncfusion_flutter_pdfviewer: any
+  syncfusion_flutter_pdf: any
+  file_picker: any
+  shared_preferences: any
+  path_provider: any
+  google_mlkit_text_recognition: any
 
 flutter:
   uses-material-design: true

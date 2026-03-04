@@ -16,83 +16,93 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
   
   Color selectedColor = Colors.red;
   double strokeWidth = 5.0;
-  double opacity = 1.0; // 1.0 = solid pen, 0.3 = highlighter
+  double opacity = 1.0; 
 
-  // Pen ke liye colors ki list
+  // Colors list for Pen
   final List<Color> colors = [
-    Colors.red, Colors.blue, Colors.green, Colors.black, Colors.yellow, Colors.purple
+    Colors.red, Colors.blue, Colors.green, Colors.black, Colors.yellow, Colors.purple, Colors.orange
   ];
+
+  // NAYA: UNDO FUNCTION (Aakhiri line delete karne ke liye)
+  void _undo() {
+    if (lines.isNotEmpty) {
+      setState(() => lines.removeLast());
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // Top Toolbar (Controls)
-        Container(
-          padding: const EdgeInsets.all(8.0),
-          color: Colors.white,
-          child: Column(
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  IconButton(icon: const Icon(Icons.close, color: Colors.red), onPressed: widget.onClose),
-                  const Text('Draw Mode', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                  IconButton(
-                    icon: const Icon(Icons.check, color: Colors.green), 
-                    onPressed: () => widget.onSave(lines), // Save karne par lines bhej dega
-                  ),
-                ],
-              ),
-              // Color Picker (Chote circles)
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: colors.map((color) => GestureDetector(
-                    onTap: () => setState(() => selectedColor = color),
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 4),
-                      width: 30, height: 30,
-                      decoration: BoxDecoration(
-                        color: color,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: selectedColor == color ? Colors.black : Colors.transparent, width: 2),
-                      ),
+        // NAYA: SafeArea taaki menu app bar ke peeche na chhupe
+        SafeArea(
+          child: Container(
+            padding: const EdgeInsets.all(8.0),
+            color: Colors.white, // White background for clear visibility
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    IconButton(icon: const Icon(Icons.close, color: Colors.red, size: 28), onPressed: widget.onClose),
+                    
+                    // UNDO BUTTON YAHAN HAI
+                    IconButton(icon: const Icon(Icons.undo, color: Colors.blue, size: 28), onPressed: _undo),
+                    
+                    const Text('Freehand Draw', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    
+                    // SAVE BUTTON YAHAN HAI (Jo PDF mein save karega)
+                    IconButton(
+                      icon: const Icon(Icons.check_circle, color: Colors.green, size: 32), 
+                      onPressed: () => widget.onSave(lines), 
                     ),
-                  )).toList(),
+                  ],
                 ),
-              ),
-              // Size aur Transparency Sliders
-              Row(
-                children: [
-                  const Icon(Icons.line_weight, size: 20),
-                  Expanded(
-                    child: Slider(
-                      value: strokeWidth, min: 1, max: 20,
-                      onChanged: (val) => setState(() => strokeWidth = val),
-                    ),
+                // Color Picker
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: colors.map((color) => GestureDetector(
+                      onTap: () => setState(() => selectedColor = color),
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 5),
+                        width: 35, height: 35,
+                        decoration: BoxDecoration(
+                          color: color,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: selectedColor == color ? Colors.black : Colors.transparent, width: 3),
+                        ),
+                      ),
+                    )).toList(),
                   ),
-                  const Icon(Icons.opacity, size: 20),
-                  Expanded(
-                    child: Slider(
-                      value: opacity, min: 0.1, max: 1.0,
-                      onChanged: (val) => setState(() => opacity = val),
+                ),
+                const SizedBox(height: 5),
+                // Size and Transparency Sliders
+                Row(
+                  children: [
+                    const Icon(Icons.line_weight, size: 20),
+                    Expanded(
+                      child: Slider(value: strokeWidth, min: 1, max: 20, onChanged: (val) => setState(() => strokeWidth = val)),
                     ),
-                  ),
-                ],
-              )
-            ],
+                    const Icon(Icons.opacity, size: 20),
+                    Expanded(
+                      child: Slider(value: opacity, min: 0.1, max: 1.0, onChanged: (val) => setState(() => opacity = val)),
+                    ),
+                  ],
+                )
+              ],
+            ),
           ),
         ),
         
-        // Drawing Area (Invisible Canvas)
+        // DRAWING AREA
         Expanded(
           child: GestureDetector(
+            // NAYA: localPosition use kiya hai jisse touch offset bilkul accurate rahega
             onPanStart: (details) {
               setState(() {
-                RenderBox renderBox = context.findRenderObject() as RenderBox;
                 currentLine = DrawnLine(
-                  path: [renderBox.globalToLocal(details.globalPosition)],
+                  path: [details.localPosition], 
                   color: selectedColor.withOpacity(opacity),
                   width: strokeWidth,
                 );
@@ -100,8 +110,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
             },
             onPanUpdate: (details) {
               setState(() {
-                RenderBox renderBox = context.findRenderObject() as RenderBox;
-                currentLine?.path.add(renderBox.globalToLocal(details.globalPosition));
+                currentLine?.path.add(details.localPosition); 
               });
             },
             onPanEnd: (details) {
@@ -112,9 +121,14 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
                 }
               });
             },
-            child: CustomPaint(
-              painter: CanvasPainter(lines: lines, currentLine: currentLine),
-              size: Size.infinite,
+            child: Container(
+              color: Colors.transparent, // Yeh line touch detect karne ke liye zaroori hai
+              width: double.infinity,
+              height: double.infinity,
+              child: CustomPaint(
+                painter: CanvasPainter(lines: lines, currentLine: currentLine),
+                size: Size.infinite,
+              ),
             ),
           ),
         ),
@@ -123,7 +137,6 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
   }
 }
 
-// Line ka Data Model
 class DrawnLine {
   final List<Offset> path;
   final Color color;
@@ -131,7 +144,6 @@ class DrawnLine {
   DrawnLine({required this.path, required this.color, required this.width});
 }
 
-// Painter class jo actual mein line draw karti hai
 class CanvasPainter extends CustomPainter {
   final List<DrawnLine> lines;
   final DrawnLine? currentLine;
@@ -140,12 +152,8 @@ class CanvasPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    for (var line in lines) {
-      _drawLine(canvas, line);
-    }
-    if (currentLine != null) {
-      _drawLine(canvas, currentLine!);
-    }
+    for (var line in lines) _drawLine(canvas, line);
+    if (currentLine != null) _drawLine(canvas, currentLine!);
   }
 
   void _drawLine(Canvas canvas, DrawnLine line) {

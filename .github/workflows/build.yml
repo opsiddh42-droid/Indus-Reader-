@@ -6,6 +6,10 @@ on:
       - main
   workflow_dispatch:
 
+# Ye permission zaroori hai direct link banane ke liye
+permissions:
+  contents: write 
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -34,13 +38,15 @@ jobs:
       - name: Install Dependencies
         run: flutter pub get
 
-      # YAHAN CHANGE KIYA HAI: --release ki jagah --debug kar diya hai
       - name: Build APK
         run: flutter build apk --debug
 
-      # YAHAN BHI CHANGE KIYA HAI: app-release.apk ki jagah app-debug.apk kar diya hai
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+      # YAHAN CHANGE KIYA HAI: Ab ye direct APK link banayega
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
         with:
-          name: IndusReader-APK
-          path: build/app/outputs/flutter-apk/app-debug.apk
+          tag_name: v1.0.${{ github.run_number }}
+          name: Indus Reader APK (Direct Download)
+          files: build/app/outputs/flutter-apk/app-debug.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

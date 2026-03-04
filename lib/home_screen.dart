@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:google_mlkit_document_scanner/google_mlkit_document_scanner.dart'; // NAYA: Scanner ke liye
+import 'package:google_mlkit_document_scanner/google_mlkit_document_scanner.dart'; 
+import 'package:shared_preferences/shared_preferences.dart'; // NAYA: Recent PDFs save karne ke liye
 import 'dart:io';
 import 'dart:ui'; 
 
@@ -21,13 +22,45 @@ class _HomeScreenState extends State<HomeScreen> {
   File? _selectedPdf;
   final PdfViewerController _pdfViewerController = PdfViewerController();
   bool _isDrawingMode = false;
+  
+  // Recent PDFs ki list
+  List<String> _recentPdfs = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRecentPdfs();
+  }
+
+  // SharedPreferences se recent PDFs load karna
+  Future<void> _loadRecentPdfs() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _recentPdfs = prefs.getStringList('recent_pdfs') ?? [];
+    });
+  }
+
+  // Nayi PDF open hone par usko Recent list mein daalna
+  Future<void> _saveToRecent(String path) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    if (!_recentPdfs.contains(path)) {
+      _recentPdfs.insert(0, path); // Sabse upar add hoga
+      await prefs.setStringList('recent_pdfs', _recentPdfs);
+      setState(() {}); // Screen refresh karne ke liye
+    }
+  }
 
   Future<void> _pickPdf() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['pdf']);
-    if (result != null) setState(() => _selectedPdf = File(result.files.single.path!));
+    if (result != null) {
+      String path = result.files.single.path!;
+      await _saveToRecent(path);
+      setState(() => _selectedPdf = File(path));
+    }
   }
 
   Future<void> _reloadEditedPdf(String newPath) async {
+    await _saveToRecent(newPath); // Edited file ko bhi recent mein daalna
     setState(() => _selectedPdf = File(newPath));
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('PDF Updated Successfully!')));
   }
@@ -37,30 +70,26 @@ class _HomeScreenState extends State<HomeScreen> {
     return page < 0 ? 0 : page;
   }
 
-  // --- NAYA: DOCUMENT SCANNER FUNCTION ---
+  // DOCUMENT SCANNER FUNCTION (Error Fixed)
   Future<void> _scanDocument() async {
     try {
-      // Scanner ki settings (Direct PDF banayega)
       final documentScanner = DocumentScanner(
         options: DocumentScannerOptions(
-          documentFormat: DocumentFormat.pdf,
           mode: ScannerMode.full,
-          pageLimit: 20, // Ek baar mein 20 page scan kar sakte hain
-          isGalleryImportAllowed: true, // Gallery se photo bhi utha sakte hain
+          pageLimit: 20, 
+          isGalleryImportAllowed: true, 
         ),
       );
 
-      // Scanner open karna
       final result = await documentScanner.scanDocument();
       
-      // Agar user ne scan karke PDF bana di hai
       if (result.pdf != null) {
         String scannedPdfPath = result.pdf!.uri;
-        // Prefix 'file://' hatana (agar URI format mein hai toh)
         if (scannedPdfPath.startsWith('file://')) {
           scannedPdfPath = scannedPdfPath.replaceFirst('file://', '');
         }
         
+        await _saveToRecent(scannedPdfPath);
         setState(() {
           _selectedPdf = File(scannedPdfPath);
         });
@@ -68,7 +97,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Document Scanned Successfully!')));
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Scanning Cancelled or Failed.')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Scanning Cancelled.')));
     }
   }
 
@@ -77,7 +106,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       extendBodyBehindAppBar: true, 
       
-      // --- NAYA: SLIDE BAR (DRAWER) YAHAN HAI ---
       drawer: Drawer(
         child: ListView(
           padding: EdgeInsets.zero,
@@ -97,10 +125,10 @@ class _HomeScreenState extends State<HomeScreen> {
             ListTile(
               leading: const Icon(Icons.document_scanner, color: Colors.blue),
               title: const Text('Scan Document', style: TextStyle(fontSize: 16)),
-              subtitle: const Text('Camera se naya PDF banayein'),
+              subtitle: const Text('Create a new PDF using Camera'),
               onTap: () {
-                Navigator.pop(context); // Menu band karna
-                _scanDocument(); // Scanner chalana
+                Navigator.pop(context); 
+                _scanDocument(); 
               },
             ),
             const Divider(),
@@ -120,7 +148,7 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Text('Indus Reader', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white.withOpacity(0.4),
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black87), // Drawer icon (hamburger menu) automatic yahan aa jayega
+        iconTheme: const IconThemeData(color: Colors.black87), 
         
         flexibleSpace: ClipRect(
           child: BackdropFilter(
@@ -217,13 +245,59 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
               ],
             )
+          // AGAR PDF SELECTED NAHI HAI TOH RECENT FILES DIKHAYEGA
           : Container(
+              width: double.infinity,
               decoration: const BoxDecoration(
                 gradient: LinearGradient(colors: [Color(0xFFE3F2FD), Color(0xFFBBDEFB)], begin: Alignment.topCenter, end: Alignment.bottomCenter),
               ),
-              child: const Center(
-                child: Text('Upar folder icon se PDF select karein ya Menu se Scan karein', style: TextStyle(fontSize: 16, color: Colors.black54)),
-              ),
+              child: _recentPdfs.isEmpty
+                  ? const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(20.0),
+                        child: Text(
+                          'Tap the folder icon to open a PDF or open the menu to scan a document.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 16, color: Colors.black54),
+                        ),
+                      ),
+                    )
+                  : SafeArea(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Padding(
+                            padding: EdgeInsets.only(left: 20, top: 80, bottom: 10),
+                            child: Text('Recent Files', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black87)),
+                          ),
+                          Expanded(
+                            child: ListView.builder(
+                              itemCount: _recentPdfs.length,
+                              itemBuilder: (context, index) {
+                                String path = _recentPdfs[index];
+                                String fileName = path.split('/').last;
+                                return Card(
+                                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                                  elevation: 2,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  child: ListTile(
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                    leading: Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                                      child: const Icon(Icons.picture_as_pdf, color: Colors.redAccent),
+                                    ),
+                                    title: Text(fileName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                    subtitle: Text('Tap to open', style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                                    onTap: () => setState(() => _selectedPdf = File(path)),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
             ),
     );
   }

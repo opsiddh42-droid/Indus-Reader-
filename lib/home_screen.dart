@@ -7,6 +7,7 @@ import 'dart:io';
 import 'pdf_services.dart';
 import 'watermark_dialog.dart';
 import 'link_dialog.dart';
+import 'drawing_canvas.dart'; // YAHAN NAYA IMPORT ADD KIYA HAI
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -17,6 +18,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   File? _selectedPdf;
   final PdfViewerController _pdfViewerController = PdfViewerController();
+  bool _isDrawingMode = false; // DRAW MODE TRACK KARNE KE LIYE VARIABLE
 
   Future<void> _pickPdf() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['pdf']);
@@ -40,7 +42,8 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Text('Indus Reader'),
         actions: [
           IconButton(icon: const Icon(Icons.folder_open), onPressed: _pickPdf),
-          if (_selectedPdf != null)
+          // Agar Draw Mode ON hai, toh menu hide kar denge taaki focus drawing par rahe
+          if (_selectedPdf != null && !_isDrawingMode)
             PopupMenuButton<String>(
               icon: const Icon(Icons.edit),
               onSelected: (value) {
@@ -81,17 +84,48 @@ class _HomeScreenState extends State<HomeScreen> {
                       },
                     ),
                   );
+                } else if (value == 'draw') {
+                  // YAHAN DRAW MODE ON KARNE KA LOGIC HAI
+                  setState(() => _isDrawingMode = true);
                 }
               },
               itemBuilder: (context) => [
                 const PopupMenuItem(value: 'watermark', child: Text('Add/Edit Watermark')),
                 const PopupMenuItem(value: 'links', child: Text('Manage Links')),
+                const PopupMenuItem(value: 'draw', child: Text('Draw / Highlight')), // NAYA OPTION
               ],
             ),
         ],
       ),
+      // BODY MEIN STACK USE KIYA HAI TAAKI PDF KE UPAR CANVAS AA SAKE
       body: _selectedPdf != null
-          ? SfPdfViewer.file(_selectedPdf!, controller: _pdfViewerController, enableTextSelection: true)
+          ? Stack(
+              children: [
+                SfPdfViewer.file(
+                  _selectedPdf!, 
+                  controller: _pdfViewerController, 
+                  enableTextSelection: !_isDrawingMode // Draw mode mein text selection band
+                ),
+                
+                // INVISIBLE DRAWING CANVAS
+                if (_isDrawingMode)
+                  Positioned.fill(
+                    child: Container(
+                      color: Colors.black12, // Halki dark screen drawing par focus ke liye
+                      child: DrawingCanvas(
+                        onClose: () => setState(() => _isDrawingMode = false),
+                        onSave: (lines) {
+                           setState(() => _isDrawingMode = false);
+                           // Abhi ke liye sirf message dikhayega, backend next step mein karenge
+                           ScaffoldMessenger.of(context).showSnackBar(
+                             const SnackBar(content: Text('Screen drawing saved! Backend sync pending.'))
+                           );
+                        },
+                      ),
+                    ),
+                  ),
+              ],
+            )
           : const Center(child: Text('Open a PDF to edit')),
     );
   }

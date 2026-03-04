@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
+import 'drawing_canvas.dart'; // NAYA: Drawing ka data lene ke liye
 
 class PdfServices {
   
@@ -18,18 +19,14 @@ class PdfServices {
     final List<int> bytes = File(inputPath).readAsBytesSync();
     final PdfDocument document = PdfDocument(inputBytes: bytes);
 
-    // Color convert karna
     PdfColor pdfColor = PdfColor(color.red, color.green, color.blue);
     PdfFont font = PdfStandardFont(PdfFontFamily.helvetica, 40);
 
     void drawWatermarkOnPage(PdfPage page) {
-      // Transparency set karna
       page.graphics.setTransparency(opacity);
-      
-      // Page ki lambai-chaudai nikalna
       Size pageSize = page.size;
-      double x = (pageSize.width / 2) - 100; // Center X
-      double y = (pageSize.height / 2);      // Center Y
+      double x = (pageSize.width / 2) - 100; 
+      double y = (pageSize.height / 2);      
       
       if (position == 'Top') y = 50;
       if (position == 'Bottom') y = pageSize.height - 100;
@@ -61,7 +58,7 @@ class PdfServices {
     required String inputPath,
     required String outputPath,
     required int pageIndex,
-    required String action, // 'remove' or 'add'
+    required String action, 
     String? url,
   }) async {
     final List<int> bytes = File(inputPath).readAsBytesSync();
@@ -69,10 +66,8 @@ class PdfServices {
     final PdfPage page = document.pages[pageIndex];
 
     if (action == 'remove') {
-      // Page se saare link annotations hata dena
       page.annotations.clear(); 
     } else if (action == 'add' && url != null) {
-      // Naya link poore page ke top par dalna (Example)
       final PdfUriAnnotation uriAnnotation = PdfUriAnnotation(
         bounds: Rect.fromLTWH(0, 0, page.size.width, 100), 
         uri: url,
@@ -84,12 +79,49 @@ class PdfServices {
     document.dispose();
   }
 
-  // (Logo Hatane wala function same rahega)
+  // 3. LOGO HATANE KA FUNCTION
   static Future<void> hideLogo(String inputPath, String outputPath, int pageIndex, Rect logoArea) async {
     final List<int> bytes = File(inputPath).readAsBytesSync();
     final PdfDocument document = PdfDocument(inputBytes: bytes);
     final PdfPage page = document.pages[pageIndex];
     page.graphics.drawRectangle(brush: PdfSolidBrush(PdfColor(255, 255, 255)), bounds: logoArea);
+    File(outputPath).writeAsBytesSync(await document.save());
+    document.dispose();
+  }
+
+  // 4. NAYA: DRAWING AUR HIGHLIGHT SAVE KARNE KA FUNCTION
+  static Future<void> saveDrawing({
+    required String inputPath,
+    required String outputPath,
+    required int pageIndex,
+    required List<DrawnLine> lines,
+  }) async {
+    final List<int> bytes = File(inputPath).readAsBytesSync();
+    final PdfDocument document = PdfDocument(inputBytes: bytes);
+    final PdfPage page = document.pages[pageIndex];
+
+    for (var line in lines) {
+      // Flutter ke Color ko PDF ke Color mein badalna
+      PdfColor pdfColor = PdfColor(line.color.red, line.color.green, line.color.blue);
+      // Pen ka size set karna
+      PdfPen pen = PdfPen(pdfColor, width: line.width);
+      
+      // State save karna taaki dusri lines par asar na pade
+      page.graphics.save();
+      // Highlighter effect ke liye transparency lagana
+      page.graphics.setTransparency(line.color.opacity);
+
+      // Path ke andar jitne bhi points hain, unhe jod kar PDF par line draw karna
+      for (int i = 0; i < line.path.length - 1; i++) {
+        Offset p1 = line.path[i];
+        Offset p2 = line.path[i + 1];
+        page.graphics.drawLine(pen, p1, p2);
+      }
+      
+      // State wapas normal karna
+      page.graphics.restore();
+    }
+
     File(outputPath).writeAsBytesSync(await document.save());
     document.dispose();
   }

@@ -3,7 +3,7 @@ import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
-import 'dart:ui'; // NAYA: Glass Blur Effect ke liye zaroori hai
+import 'dart:ui'; // Premium Glass blur effect ke liye
 
 import 'pdf_services.dart';
 import 'watermark_dialog.dart';
@@ -19,6 +19,8 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   File? _selectedPdf;
   final PdfViewerController _pdfViewerController = PdfViewerController();
+  
+  // Draw Mode track karne ke liye
   bool _isDrawingMode = false;
 
   Future<void> _pickPdf() async {
@@ -39,17 +41,14 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // 1. PDF KO APP BAR KE PEECHE BHEJNE KE LIYE
-      extendBodyBehindAppBar: true, 
-      
+      extendBodyBehindAppBar: true, // App bar ke peeche PDF scroll hone ke liye
       appBar: AppBar(
         title: const Text('Indus Reader', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
-        // 2. APP BAR KO TRANSPARENT KARNA
-        backgroundColor: Colors.white.withOpacity(0.4), 
-        elevation: 0, // Shadow hatana
+        backgroundColor: Colors.white.withOpacity(0.4),
+        elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black87),
         
-        // 3. ASLI GLASS BLUR EFFECT YAHAN HAI
+        // Glass Blur Effect
         flexibleSpace: ClipRect(
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
@@ -59,6 +58,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
         actions: [
           IconButton(icon: const Icon(Icons.folder_open), onPressed: _pickPdf),
+          // Agar Draw Mode on hai toh Edit menu hide kar do
           if (_selectedPdf != null && !_isDrawingMode)
             PopupMenuButton<String>(
               icon: const Icon(Icons.edit),
@@ -101,6 +101,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   );
                 } else if (value == 'draw') {
+                  // Draw Mode ON karna
                   setState(() => _isDrawingMode = true);
                 }
               },
@@ -115,27 +116,46 @@ class _HomeScreenState extends State<HomeScreen> {
       body: _selectedPdf != null
           ? Stack(
               children: [
+                // Neeche aapki asli PDF 
                 SfPdfViewer.file(
                   _selectedPdf!, 
                   controller: _pdfViewerController, 
-                  enableTextSelection: !_isDrawingMode,
-                  // 4. SCROLLING KO MAKKHAN BANANE KI SETTING
+                  enableTextSelection: !_isDrawingMode, // Draw mode mein text copy band
                   pageSpacing: 4, 
-                  canShowScrollHead: false, // Right side ka mota scrollbar hide kar dega
+                  canShowScrollHead: false, 
                   interactionMode: PdfInteractionMode.pan,
                 ),
                 
+                // Upar Invisible Canvas (Jab Draw Mode ON ho)
                 if (_isDrawingMode)
                   Positioned.fill(
                     child: Container(
                       color: Colors.white.withOpacity(0.1), 
                       child: DrawingCanvas(
                         onClose: () => setState(() => _isDrawingMode = false),
-                        onSave: (lines) {
+                        // JAB AAP SAVE DABAYENGE TOH YE CODE CHALEGA
+                        onSave: (lines) async {
                            setState(() => _isDrawingMode = false);
+                           
+                           if (lines.isEmpty) return; // Agar kuch draw nahi kiya toh wapas aao
+                           
                            ScaffoldMessenger.of(context).showSnackBar(
-                             const SnackBar(content: Text('Screen drawing saved! Backend sync pending.'))
+                             const SnackBar(content: Text('Saving Drawing to PDF...'))
                            );
+                           
+                           final dir = await getApplicationDocumentsDirectory();
+                           final outputPath = '${dir.path}/drawn_${DateTime.now().millisecondsSinceEpoch}.pdf';
+                           
+                           // Asli PDF ke andar save karna
+                           await PdfServices.saveDrawing(
+                             inputPath: _selectedPdf!.path,
+                             outputPath: outputPath,
+                             pageIndex: _getCurrentPage(),
+                             lines: lines,
+                           );
+                           
+                           // Nayi update hui PDF ko screen par dikhana
+                           _reloadEditedPdf(outputPath);
                         },
                       ),
                     ),
@@ -143,7 +163,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             )
           : Container(
-              // Khali screen par bhi thoda premium gradient background de diya hai
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
                   colors: [Color(0xFFE3F2FD), Color(0xFFBBDEFB)],

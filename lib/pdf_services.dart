@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
-import 'drawing_canvas.dart'; // NAYA: Drawing ka data lene ke liye
+import 'drawing_canvas.dart'; 
 
 class PdfServices {
   
@@ -66,7 +66,11 @@ class PdfServices {
     final PdfPage page = document.pages[pageIndex];
 
     if (action == 'remove') {
-      page.annotations.clear(); 
+      // YAHAN FIX KIYA HAI: clear() ki jagah loop use karke delete kiya hai
+      for (int i = page.annotations.count - 1; i >= 0; i--) {
+        final annotation = page.annotations[i];
+        page.annotations.remove(annotation);
+      }
     } else if (action == 'add' && url != null) {
       final PdfUriAnnotation uriAnnotation = PdfUriAnnotation(
         bounds: Rect.fromLTWH(0, 0, page.size.width, 100), 
@@ -89,7 +93,7 @@ class PdfServices {
     document.dispose();
   }
 
-  // 4. NAYA: DRAWING AUR HIGHLIGHT SAVE KARNE KA FUNCTION
+  // 4. DRAWING AUR HIGHLIGHT SAVE KARNE KA FUNCTION
   static Future<void> saveDrawing({
     required String inputPath,
     required String outputPath,
@@ -101,24 +105,18 @@ class PdfServices {
     final PdfPage page = document.pages[pageIndex];
 
     for (var line in lines) {
-      // Flutter ke Color ko PDF ke Color mein badalna
       PdfColor pdfColor = PdfColor(line.color.red, line.color.green, line.color.blue);
-      // Pen ka size set karna
       PdfPen pen = PdfPen(pdfColor, width: line.width);
       
-      // State save karna taaki dusri lines par asar na pade
       page.graphics.save();
-      // Highlighter effect ke liye transparency lagana
       page.graphics.setTransparency(line.color.opacity);
 
-      // Path ke andar jitne bhi points hain, unhe jod kar PDF par line draw karna
       for (int i = 0; i < line.path.length - 1; i++) {
         Offset p1 = line.path[i];
         Offset p2 = line.path[i + 1];
         page.graphics.drawLine(pen, p1, p2);
       }
       
-      // State wapas normal karna
       page.graphics.restore();
     }
 

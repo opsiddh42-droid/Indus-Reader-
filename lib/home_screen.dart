@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:google_mlkit_document_scanner/google_mlkit_document_scanner.dart'; // NAYA: Scanner ke liye
 import 'dart:io';
-import 'dart:ui'; // Premium Glass blur effect ke liye
+import 'dart:ui'; 
 
 import 'pdf_services.dart';
 import 'watermark_dialog.dart';
@@ -19,8 +20,6 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   File? _selectedPdf;
   final PdfViewerController _pdfViewerController = PdfViewerController();
-  
-  // Draw Mode track karne ke liye
   bool _isDrawingMode = false;
 
   Future<void> _pickPdf() async {
@@ -38,17 +37,91 @@ class _HomeScreenState extends State<HomeScreen> {
     return page < 0 ? 0 : page;
   }
 
+  // --- NAYA: DOCUMENT SCANNER FUNCTION ---
+  Future<void> _scanDocument() async {
+    try {
+      // Scanner ki settings (Direct PDF banayega)
+      final documentScanner = DocumentScanner(
+        options: DocumentScannerOptions(
+          documentFormat: DocumentFormat.pdf,
+          mode: ScannerMode.full,
+          pageLimit: 20, // Ek baar mein 20 page scan kar sakte hain
+          isGalleryImportAllowed: true, // Gallery se photo bhi utha sakte hain
+        ),
+      );
+
+      // Scanner open karna
+      final result = await documentScanner.scanDocument();
+      
+      // Agar user ne scan karke PDF bana di hai
+      if (result.pdf != null) {
+        String scannedPdfPath = result.pdf!.uri;
+        // Prefix 'file://' hatana (agar URI format mein hai toh)
+        if (scannedPdfPath.startsWith('file://')) {
+          scannedPdfPath = scannedPdfPath.replaceFirst('file://', '');
+        }
+        
+        setState(() {
+          _selectedPdf = File(scannedPdfPath);
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Document Scanned Successfully!')));
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Scanning Cancelled or Failed.')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      extendBodyBehindAppBar: true, // App bar ke peeche PDF scroll hone ke liye
+      extendBodyBehindAppBar: true, 
+      
+      // --- NAYA: SLIDE BAR (DRAWER) YAHAN HAI ---
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            const DrawerHeader(
+              decoration: BoxDecoration(color: Colors.blueAccent),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Icon(Icons.picture_as_pdf, size: 50, color: Colors.white),
+                  SizedBox(height: 10),
+                  Text('Indus Reader', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.document_scanner, color: Colors.blue),
+              title: const Text('Scan Document', style: TextStyle(fontSize: 16)),
+              subtitle: const Text('Camera se naya PDF banayein'),
+              onTap: () {
+                Navigator.pop(context); // Menu band karna
+                _scanDocument(); // Scanner chalana
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.folder),
+              title: const Text('Open File'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickPdf();
+              },
+            ),
+          ],
+        ),
+      ),
+
       appBar: AppBar(
         title: const Text('Indus Reader', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white.withOpacity(0.4),
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black87),
+        iconTheme: const IconThemeData(color: Colors.black87), // Drawer icon (hamburger menu) automatic yahan aa jayega
         
-        // Glass Blur Effect
         flexibleSpace: ClipRect(
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
@@ -58,7 +131,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
         actions: [
           IconButton(icon: const Icon(Icons.folder_open), onPressed: _pickPdf),
-          // Agar Draw Mode on hai toh Edit menu hide kar do
           if (_selectedPdf != null && !_isDrawingMode)
             PopupMenuButton<String>(
               icon: const Icon(Icons.edit),
@@ -71,13 +143,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Applying Watermark...')));
                         final dir = await getApplicationDocumentsDirectory();
                         final outputPath = '${dir.path}/wm_${DateTime.now().millisecondsSinceEpoch}.pdf';
-                        
                         await PdfServices.addAdvancedWatermark(
                           inputPath: _selectedPdf!.path, outputPath: outputPath,
-                          text: text.isNotEmpty ? text : "INDUS",
-                          color: Colors.red, opacity: opacity,
-                          position: position, allPages: allPages,
-                          currentPageIndex: _getCurrentPage(),
+                          text: text.isNotEmpty ? text : "INDUS", color: Colors.red, opacity: opacity,
+                          position: position, allPages: allPages, currentPageIndex: _getCurrentPage(),
                         );
                         _reloadEditedPdf(outputPath);
                       },
@@ -91,7 +160,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Updating Links...')));
                         final dir = await getApplicationDocumentsDirectory();
                         final outputPath = '${dir.path}/link_${DateTime.now().millisecondsSinceEpoch}.pdf';
-                        
                         await PdfServices.manageLinks(
                           inputPath: _selectedPdf!.path, outputPath: outputPath,
                           pageIndex: _getCurrentPage(), action: action, url: url,
@@ -101,7 +169,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   );
                 } else if (value == 'draw') {
-                  // Draw Mode ON karna
                   setState(() => _isDrawingMode = true);
                 }
               },
@@ -116,45 +183,33 @@ class _HomeScreenState extends State<HomeScreen> {
       body: _selectedPdf != null
           ? Stack(
               children: [
-                // Neeche aapki asli PDF 
                 SfPdfViewer.file(
                   _selectedPdf!, 
                   controller: _pdfViewerController, 
-                  enableTextSelection: !_isDrawingMode, // Draw mode mein text copy band
+                  enableTextSelection: !_isDrawingMode,
                   pageSpacing: 4, 
                   canShowScrollHead: false, 
                   interactionMode: PdfInteractionMode.pan,
                 ),
                 
-                // Upar Invisible Canvas (Jab Draw Mode ON ho)
                 if (_isDrawingMode)
                   Positioned.fill(
                     child: Container(
                       color: Colors.white.withOpacity(0.1), 
                       child: DrawingCanvas(
                         onClose: () => setState(() => _isDrawingMode = false),
-                        // JAB AAP SAVE DABAYENGE TOH YE CODE CHALEGA
                         onSave: (lines) async {
                            setState(() => _isDrawingMode = false);
+                           if (lines.isEmpty) return;
                            
-                           if (lines.isEmpty) return; // Agar kuch draw nahi kiya toh wapas aao
-                           
-                           ScaffoldMessenger.of(context).showSnackBar(
-                             const SnackBar(content: Text('Saving Drawing to PDF...'))
-                           );
-                           
+                           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Saving Drawing to PDF...')));
                            final dir = await getApplicationDocumentsDirectory();
                            final outputPath = '${dir.path}/drawn_${DateTime.now().millisecondsSinceEpoch}.pdf';
                            
-                           // Asli PDF ke andar save karna
                            await PdfServices.saveDrawing(
-                             inputPath: _selectedPdf!.path,
-                             outputPath: outputPath,
-                             pageIndex: _getCurrentPage(),
-                             lines: lines,
+                             inputPath: _selectedPdf!.path, outputPath: outputPath,
+                             pageIndex: _getCurrentPage(), lines: lines,
                            );
-                           
-                           // Nayi update hui PDF ko screen par dikhana
                            _reloadEditedPdf(outputPath);
                         },
                       ),
@@ -164,13 +219,10 @@ class _HomeScreenState extends State<HomeScreen> {
             )
           : Container(
               decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xFFE3F2FD), Color(0xFFBBDEFB)],
-                  begin: Alignment.topCenter, end: Alignment.bottomCenter,
-                ),
+                gradient: LinearGradient(colors: [Color(0xFFE3F2FD), Color(0xFFBBDEFB)], begin: Alignment.topCenter, end: Alignment.bottomCenter),
               ),
               child: const Center(
-                child: Text('Upar folder icon se PDF select karein', style: TextStyle(fontSize: 16, color: Colors.black54)),
+                child: Text('Upar folder icon se PDF select karein ya Menu se Scan karein', style: TextStyle(fontSize: 16, color: Colors.black54)),
               ),
             ),
     );

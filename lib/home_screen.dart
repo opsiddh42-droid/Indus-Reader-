@@ -40,7 +40,6 @@ class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _searchController = TextEditingController();
   PdfTextSearchResult? _searchResult;
 
-  // --- NAYA: NIGHT MODE VARIABLE ---
   bool _isNightMode = false;
 
   @override
@@ -103,24 +102,95 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  // --- NAYA: SCANNER FIX (Rename aur Permanent Save) ---
   Future<void> _scanDocument() async {
     try {
       final documentScanner = DocumentScanner(
         options: DocumentScannerOptions(mode: ScannerMode.full, pageLimit: 20),
       );
       final result = await documentScanner.scanDocument();
+      
       if (result.pdf != null) {
-        String scannedPdfPath = result.pdf!.uri;
-        if (scannedPdfPath.startsWith('file://')) {
-          scannedPdfPath = scannedPdfPath.replaceFirst('file://', '');
+        String tempPdfPath = result.pdf!.uri;
+        if (tempPdfPath.startsWith('file://')) {
+          tempPdfPath = tempPdfPath.replaceFirst('file://', '');
         }
-        _openPdf(scannedPdfPath);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Document Scanned Successfully!')));
+
+        if (!mounted) return;
+        
+        TextEditingController nameController = TextEditingController();
+        
+        // Dialog box jisme user file ka naam type karega
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            title: const Text('Save Scanned PDF', style: TextStyle(fontWeight: FontWeight.bold)),
+            content: TextField(
+              controller: nameController,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Enter File Name',
+                hintText: 'e.g. My_Notes',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context); 
+                  // Agar user cancel kar de, toh default naam se save kar lo
+                  _saveAndOpenScannedPdf(tempPdfPath, 'Scanned_${DateTime.now().millisecondsSinceEpoch}');
+                },
+                child: const Text('Save Default', style: TextStyle(color: Colors.grey)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent, foregroundColor: Colors.white),
+                onPressed: () {
+                  Navigator.pop(context);
+                  String fileName = nameController.text.trim();
+                  if (fileName.isEmpty) {
+                    fileName = 'Scanned_${DateTime.now().millisecondsSinceEpoch}';
+                  }
+                  _saveAndOpenScannedPdf(tempPdfPath, fileName);
+                },
+                child: const Text('Save File'),
+              ),
+            ],
+          ),
+        );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Scanning Cancelled.')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Scanning Cancelled.')));
+      }
     }
   }
+
+  // Helper function: File ko Temp se Permanent folder mein copy karna
+  Future<void> _saveAndOpenScannedPdf(String tempPath, String fileName) async {
+    try {
+      if (!fileName.toLowerCase().endsWith('.pdf')) {
+        fileName += '.pdf';
+      }
+      final dir = await getApplicationDocumentsDirectory();
+      final savedPath = '${dir.path}/$fileName';
+      
+      // Temporary file ko app ke main storage mein copy karna
+      await File(tempPath).copy(savedPath);
+      
+      _openPdf(savedPath); // Nayi save ki hui file open karna
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Saved as $fileName'), backgroundColor: Colors.green));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error saving file!'), backgroundColor: Colors.red));
+      }
+    }
+  }
+  // --------------------------------------------------
 
   void _showHighlighterSettings() {
     showModalBottomSheet(
@@ -205,7 +275,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Night Mode ke hisaab se AppBar aur background ka color
     Color appBarBgColor = _isNightMode ? Colors.black.withOpacity(0.7) : Colors.white.withOpacity(0.4);
     Color iconTextColor = _isNightMode ? Colors.white : Colors.black87;
 
@@ -253,8 +322,6 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: EdgeInsets.only(left: 16, top: 8, bottom: 8),
               child: Text('PDF TOOLS', style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold)),
             ),
-            
-            // --- SAARE PREMIUM FEATURES KE LINKS ---
             ListTile(
               leading: const Icon(Icons.merge_type, color: Colors.purple),
               title: const Text('Merge PDFs'),
@@ -329,7 +396,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ]
           : [
-              // --- NAYA: NIGHT MODE TOGGLE BUTTON ---
               IconButton(
                 icon: Icon(_isNightMode ? Icons.wb_sunny : Icons.nightlight_round, color: _isNightMode ? Colors.yellow : Colors.indigo),
                 tooltip: 'Toggle Night Mode',
@@ -395,14 +461,13 @@ class _HomeScreenState extends State<HomeScreen> {
       body: _selectedPdf != null
           ? Stack(
               children: [
-                // --- NIGHT MODE COLOR INVERSION MAGIC ---
                 _isNightMode
                   ? ColorFiltered(
                       colorFilter: const ColorFilter.matrix([
-                        -1,  0,  0, 0, 255, // Invert Red
-                         0, -1,  0, 0, 255, // Invert Green
-                         0,  0, -1, 0, 255, // Invert Blue
-                         0,  0,  0, 1,   0, // Alpha
+                        -1,  0,  0, 0, 255, 
+                         0, -1,  0, 0, 255, 
+                         0,  0, -1, 0, 255, 
+                         0,  0,  0, 1,   0, 
                       ]),
                       child: SfPdfViewer.file(
                         _selectedPdf!, 
@@ -453,8 +518,8 @@ class _HomeScreenState extends State<HomeScreen> {
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: _isNightMode 
-                      ? [const Color(0xFF1E1E1E), const Color(0xFF000000)] // Dark Gradient
-                      : [const Color(0xFFE3F2FD), const Color(0xFFBBDEFB)], // Light Gradient
+                      ? [const Color(0xFF1E1E1E), const Color(0xFF000000)] 
+                      : [const Color(0xFFE3F2FD), const Color(0xFFBBDEFB)], 
                   begin: Alignment.topCenter, end: Alignment.bottomCenter
                 ),
               ),

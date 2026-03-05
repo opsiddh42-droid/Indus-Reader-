@@ -1,8 +1,11 @@
 name: Generate Android Folder
 
-# Ye workflow apne aap nahi chalega, hum ise manual button dabakar chalayenge
 on: 
   workflow_dispatch: 
+
+# NAYA: GitHub Bot ko code save (push) karne ki permission dena
+permissions:
+  contents: write
 
 jobs:
   build_folders:
@@ -18,7 +21,6 @@ jobs:
           channel: 'stable'
 
       - name: Create Platform Folders
-        # Ye command aapke app ke liye android aur ios folders bana degi
         run: flutter create .
 
       - name: Commit and Push Folders to GitHub

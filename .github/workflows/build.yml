@@ -29,11 +29,8 @@ jobs:
         with:
           channel: 'stable'
 
-      - name: Generate Missing Android Files
-        run: |
-          flutter create temp_app --platforms=android --org com.indusreader
-          cp -r temp_app/android ./android
-          rm -rf temp_app
+      # YAHAN SE 'Generate Missing Android Files' WALA STEP HATA DIYA HAI
+      # Kyunki humara custom android folder ab repo mein save hai!
 
       - name: Install Dependencies
         run: flutter pub get
@@ -41,7 +38,6 @@ jobs:
       - name: Build APK
         run: flutter build apk --debug
 
-      # YAHAN CHANGE KIYA HAI: Ab ye direct APK link banayega
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:

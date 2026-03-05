@@ -28,7 +28,15 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isDrawingMode = false;
   
   List<String> _recentPdfs = [];
-  int _initialPage = 1; // NAYA: PDF kahan khulni chahiye
+  int _initialPage = 1; 
+
+  Color _highlightColor = Colors.yellow;
+  double _highlightOpacity = 0.5;
+
+  // --- NAYA: SEARCH FEATURE KE VARIABLES ---
+  bool _isSearching = false;
+  final TextEditingController _searchController = TextEditingController();
+  PdfTextSearchResult? _searchResult;
 
   @override
   void initState() {
@@ -52,22 +60,31 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // --- NAYA: SMART OPEN FUNCTION (Fast Load & Resume Page) ---
   Future<void> _openPdf(String path) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    // Pichli baar kaunse page par the wo check karega (default 1)
     int savedPage = prefs.getInt('page_$path') ?? 1;
 
     await _saveToRecent(path);
     
     setState(() {
-      _initialPage = savedPage; // Page number set kiya
-      _selectedPdf = File(path); // File open ki
-      _isDrawingMode = false; // Drawing mode reset kiya
+      _initialPage = savedPage; 
+      _selectedPdf = File(path); 
+      _isDrawingMode = false; 
+      // Nayi file khulne par search band kar do
+      _isSearching = false;
+      _searchController.clear();
+      _searchResult?.clear();
+    });
+
+    Future.delayed(const Duration(milliseconds: 500), () {
+      try {
+        _pdfViewerController.annotationSettings.highlight.color = _highlightColor.withOpacity(_highlightOpacity);
+      } catch (e) {
+        debugPrint('Highlight setting error: $e');
+      }
     });
   }
 
-  // --- NAYA: JAB PAGE CHANGE HO TOH SAVE KARNA ---
   Future<void> _saveCurrentPage(int pageNumber) async {
     if (_selectedPdf != null) {
       SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -101,6 +118,81 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  void _showHighlighterSettings() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Highlighter Style', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 20),
+                  const Text('Select Color:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 10),
+                  
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        Colors.yellow, Colors.green, Colors.lightBlue, Colors.pink, Colors.purple, Colors.red, Colors.orange
+                      ].map((color) => GestureDetector(
+                        onTap: () {
+                          setSheetState(() => _highlightColor = color);
+                          setState(() {
+                            _highlightColor = color;
+                            try {
+                              _pdfViewerController.annotationSettings.highlight.color = _highlightColor.withOpacity(_highlightOpacity);
+                            } catch (e) {}
+                          });
+                        },
+                        child: Container(
+                          margin: const EdgeInsets.only(right: 15),
+                          width: 40, height: 40,
+                          decoration: BoxDecoration(
+                            color: color,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: _highlightColor == color ? Colors.black : Colors.transparent, width: 3),
+                          ),
+                        ),
+                      )).toList(),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 20),
+                  const Text('Transparency (Opacity):', style: TextStyle(fontWeight: FontWeight.bold)),
+                  
+                  Slider(
+                    value: _highlightOpacity,
+                    min: 0.1,
+                    max: 1.0,
+                    activeColor: _highlightColor,
+                    onChanged: (val) {
+                      setSheetState(() => _highlightOpacity = val);
+                      setState(() {
+                        _highlightOpacity = val;
+                        try {
+                           _pdfViewerController.annotationSettings.highlight.color = _highlightColor.withOpacity(_highlightOpacity);
+                        } catch (e) {}
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                ],
+              ),
+            );
+          }
+        );
+      }
+    );
+  }
+
   int _getCurrentPage() {
     int page = _pdfViewerController.pageNumber - 1;
     return page < 0 ? 0 : page;
@@ -127,20 +219,15 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
             ),
-            
-            // --- NAYA: HOME BUTTON ---
             ListTile(
               leading: const Icon(Icons.home, color: Colors.indigo),
               title: const Text('Home / Recent Files', style: TextStyle(fontWeight: FontWeight.bold)),
               onTap: () {
-                Navigator.pop(context); // Drawer band karega
-                setState(() {
-                  _selectedPdf = null; // Wapas Home par le aayega
-                });
+                Navigator.pop(context); 
+                setState(() => _selectedPdf = null);
               },
             ),
             const Divider(),
-
             ListTile(
               leading: const Icon(Icons.folder_open, color: Colors.black87),
               title: const Text('Open File'),
@@ -193,69 +280,131 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
 
+      // --- UPDATED APP BAR WITH SEARCH FEATURE ---
       appBar: AppBar(
-        title: const Text('Indus Reader', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
+        title: _isSearching
+            ? TextField(
+                controller: _searchController,
+                autofocus: true,
+                style: const TextStyle(color: Colors.black87),
+                decoration: const InputDecoration(
+                  hintText: 'Search text...',
+                  border: InputBorder.none,
+                  hintStyle: TextStyle(color: Colors.black54),
+                ),
+                onSubmitted: (String text) async {
+                  if (text.isNotEmpty) {
+                    _searchResult = await _pdfViewerController.searchText(text);
+                    setState(() {});
+                  }
+                },
+              )
+            : const Text('Indus Reader', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white.withOpacity(0.4),
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black87), 
-        
         flexibleSpace: ClipRect(
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-            child: Container(color: Colors.transparent),
-          ),
+          child: BackdropFilter(filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12), child: Container(color: Colors.transparent)),
         ),
+        actions: _isSearching 
+          ? [
+              // Search Navigation Icons
+              IconButton(
+                icon: const Icon(Icons.keyboard_arrow_up),
+                tooltip: 'Previous result',
+                onPressed: () {
+                  _searchResult?.previousInstance();
+                },
+              ),
+              IconButton(
+                icon: const Icon(Icons.keyboard_arrow_down),
+                tooltip: 'Next result',
+                onPressed: () {
+                  _searchResult?.nextInstance();
+                },
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, color: Colors.red),
+                tooltip: 'Cancel Search',
+                onPressed: () {
+                  setState(() {
+                    _isSearching = false;
+                    _searchResult?.clear();
+                    _searchController.clear();
+                  });
+                },
+              ),
+            ]
+          : [
+              // Normal Icons
+              if (_selectedPdf != null && !_isDrawingMode)
+                IconButton(
+                  icon: const Icon(Icons.search),
+                  tooltip: 'Search Text',
+                  onPressed: () {
+                    setState(() {
+                      _isSearching = true;
+                    });
+                  },
+                ),
 
-        actions: [
-          IconButton(icon: const Icon(Icons.folder_open), onPressed: _pickPdf),
-          if (_selectedPdf != null && !_isDrawingMode)
-            PopupMenuButton<String>(
-              icon: const Icon(Icons.edit),
-              onSelected: (value) {
-                if (value == 'watermark') {
-                  showDialog(
-                    context: context,
-                    builder: (context) => WatermarkDialog(
-                      onApply: (text, position, opacity, allPages) async {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Applying Watermark...')));
-                        final dir = await getApplicationDocumentsDirectory();
-                        final outputPath = '${dir.path}/wm_${DateTime.now().millisecondsSinceEpoch}.pdf';
-                        await PdfServices.addAdvancedWatermark(
-                          inputPath: _selectedPdf!.path, outputPath: outputPath,
-                          text: text.isNotEmpty ? text : "INDUS", color: Colors.red, opacity: opacity,
-                          position: position, allPages: allPages, currentPageIndex: _getCurrentPage(),
-                        );
-                        _openPdf(outputPath);
-                      },
-                    ),
-                  );
-                } else if (value == 'links') {
-                  showDialog(
-                    context: context,
-                    builder: (context) => LinkDialog(
-                      onApply: (action, url) async {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Updating Links...')));
-                        final dir = await getApplicationDocumentsDirectory();
-                        final outputPath = '${dir.path}/link_${DateTime.now().millisecondsSinceEpoch}.pdf';
-                        await PdfServices.manageLinks(
-                          inputPath: _selectedPdf!.path, outputPath: outputPath,
-                          pageIndex: _getCurrentPage(), action: action, url: url,
-                        );
-                        _openPdf(outputPath);
-                      },
-                    ),
-                  );
-                } else if (value == 'draw') {
-                  setState(() => _isDrawingMode = true);
-                }
-              },
-              itemBuilder: (context) => [
-                const PopupMenuItem(value: 'watermark', child: Text('Add/Edit Watermark')),
-                const PopupMenuItem(value: 'links', child: Text('Manage Links')),
-                const PopupMenuItem(value: 'draw', child: Text('Draw / Highlight')),
-              ],
-            ),
-        ],
+              IconButton(icon: const Icon(Icons.folder_open), onPressed: _pickPdf),
+              
+              if (_selectedPdf != null && !_isDrawingMode)
+                IconButton(
+                  icon: const Icon(Icons.border_color, color: Colors.orangeAccent),
+                  tooltip: 'Highlighter Settings',
+                  onPressed: _showHighlighterSettings, 
+                ),
+
+              if (_selectedPdf != null && !_isDrawingMode)
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.edit),
+                  onSelected: (value) {
+                    if (value == 'watermark') {
+                      showDialog(
+                        context: context,
+                        builder: (context) => WatermarkDialog(
+                          onApply: (text, position, opacity, allPages) async {
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Applying Watermark...')));
+                            final dir = await getApplicationDocumentsDirectory();
+                            final outputPath = '${dir.path}/wm_${DateTime.now().millisecondsSinceEpoch}.pdf';
+                            await PdfServices.addAdvancedWatermark(
+                              inputPath: _selectedPdf!.path, outputPath: outputPath,
+                              text: text.isNotEmpty ? text : "INDUS", color: Colors.red, opacity: opacity,
+                              position: position, allPages: allPages, currentPageIndex: _getCurrentPage(),
+                            );
+                            _openPdf(outputPath);
+                          },
+                        ),
+                      );
+                    } else if (value == 'links') {
+                      showDialog(
+                        context: context,
+                        builder: (context) => LinkDialog(
+                          onApply: (action, url) async {
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Updating Links...')));
+                            final dir = await getApplicationDocumentsDirectory();
+                            final outputPath = '${dir.path}/link_${DateTime.now().millisecondsSinceEpoch}.pdf';
+                            await PdfServices.manageLinks(
+                              inputPath: _selectedPdf!.path, outputPath: outputPath,
+                              pageIndex: _getCurrentPage(), action: action, url: url,
+                            );
+                            _openPdf(outputPath);
+                          },
+                        ),
+                      );
+                    } else if (value == 'draw') {
+                      setState(() => _isDrawingMode = true);
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(value: 'watermark', child: Text('Add/Edit Watermark')),
+                    const PopupMenuItem(value: 'links', child: Text('Manage Links')),
+                    const PopupMenuItem(value: 'draw', child: Text('Draw / Freehand')),
+                  ],
+                ),
+            ],
       ),
       body: _selectedPdf != null
           ? Stack(
@@ -267,8 +416,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   pageSpacing: 4, 
                   canShowScrollHead: false, 
                   interactionMode: PdfInteractionMode.pan,
-                  
-                  // --- NAYA: INITIAL PAGE (Fast Load) AUR SAVE PAGE ---
                   initialPageNumber: _initialPage,
                   onPageChanged: (PdfPageChangedDetails details) {
                     _saveCurrentPage(details.newPageNumber);
@@ -343,8 +490,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ),
                                     title: Text(fileName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
                                     subtitle: Text('Tap to open', style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-                                    
-                                    // NAYA: Recent File se tap karne par smartly open hoga
                                     onTap: () => _openPdf(path),
                                   ),
                                 );

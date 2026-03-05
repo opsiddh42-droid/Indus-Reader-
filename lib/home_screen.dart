@@ -21,6 +21,7 @@ import 'password_screen.dart';
 import 'ocr_screen.dart'; 
 import 'signature_screen.dart'; 
 import 'image_to_pdf_screen.dart'; 
+import 'bulk_modify_screen.dart'; // NAYA IMPORT BULK MODIFY KE LIYE
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -73,7 +74,6 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  // --- NAYA JUGAAAD: AUTO-SCAN APP FOLDER WALA FIX ---
   Future<void> _loadRecentPdfs() async {
     try {
       final dir = await getApplicationDocumentsDirectory();
@@ -129,7 +129,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _searchResult?.clear();
     });
 
-    _loadRecentPdfs(); // File khulte hi list refresh hogi
+    _loadRecentPdfs();
 
     Future.delayed(const Duration(milliseconds: 500), () {
       try {
@@ -154,7 +154,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // --- NAYA FIX: JUMP TO PAGE DIALOG ---
   void _showJumpToPageDialog() {
     TextEditingController pageCtrl = TextEditingController();
     showDialog(
@@ -378,7 +377,7 @@ class _HomeScreenState extends State<HomeScreen> {
               onTap: () {
                 Navigator.pop(context); 
                 setState(() => _selectedPdf = null);
-                _loadRecentPdfs(); // Refresh
+                _loadRecentPdfs(); 
               },
             ),
             const Divider(),
@@ -397,7 +396,19 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: EdgeInsets.only(left: 16, top: 8, bottom: 8),
               child: Text('PDF TOOLS', style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold)),
             ),
-            // --- NAYA FIX: AWAIT aur AUTO-REFRESH add kiya saare tools mein ---
+            
+            // --- NAYA VIP BULK MODIFY BUTTON ---
+            ListTile(
+              tileColor: Colors.amber.withOpacity(0.2), 
+              leading: const Icon(Icons.auto_awesome, color: Colors.amber),
+              title: const Text('Bulk Modify (Premium)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.amber)),
+              onTap: () async { 
+                Navigator.pop(context); 
+                await Navigator.push(context, MaterialPageRoute(builder: (context) => const BulkModifyScreen())); 
+                _loadRecentPdfs(); 
+              },
+            ),
+
             ListTile(
               leading: const Icon(Icons.merge_type, color: Colors.purple),
               title: const Text('Merge PDFs'),
@@ -490,7 +501,6 @@ class _HomeScreenState extends State<HomeScreen> {
               if (_selectedPdf != null && !_isDrawingMode)
                 IconButton(icon: const Icon(Icons.search), onPressed: () => setState(() => _isSearching = true)),
 
-              // --- NAYA FIX: JUMP TO PAGE ICON ---
               if (_selectedPdf != null && !_isDrawingMode) 
                 IconButton(icon: const Icon(Icons.find_in_page), tooltip: 'Go to Page', onPressed: _showJumpToPageDialog),
 
@@ -559,7 +569,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         controller: _pdfViewerController, 
                         enableTextSelection: !_isDrawingMode,
                         pageSpacing: 4, 
-                        // --- NAYA FIX: SCROLLBAR AUR PAGE NUMBER TRUE KIYA ---
                         canShowScrollHead: true, 
                         canShowScrollStatus: true,
                         interactionMode: PdfInteractionMode.pan,
@@ -572,7 +581,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       controller: _pdfViewerController, 
                       enableTextSelection: !_isDrawingMode,
                       pageSpacing: 4, 
-                      // --- NAYA FIX: SCROLLBAR AUR PAGE NUMBER TRUE KIYA ---
                       canShowScrollHead: true, 
                       canShowScrollStatus: true,
                       interactionMode: PdfInteractionMode.pan,

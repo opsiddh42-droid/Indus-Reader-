@@ -63,7 +63,9 @@ class _BulkModifyScreenState extends State<BulkModifyScreen> {
     final dir = await getApplicationDocumentsDirectory();
 
     PdfDocument? promoDoc;
-    PdfPageTemplateElement? promoTemplate;
+    // YAHAN CHANGE KIYA HAI: 'PdfPageTemplateElement' ki jagah sirf 'PdfTemplate' likha hai
+    PdfTemplate? promoTemplate; 
+    
     if (_applyPromo && _promoPdf != null) {
       promoDoc = PdfDocument(inputBytes: _promoPdf!.readAsBytesSync());
       if (promoDoc.pages.count > 0) {

@@ -67,7 +67,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return page < 0 ? 0 : page;
   }
 
-  // --- ERROR FIXED: isGalleryImportAllowed hata diya hai ---
   Future<void> _scanDocument() async {
     try {
       final documentScanner = DocumentScanner(
@@ -102,6 +101,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       extendBodyBehindAppBar: true, 
       
+      // --- UPDATED DRAWER WITH PRO FEATURES ---
       drawer: Drawer(
         child: ListView(
           padding: EdgeInsets.zero,
@@ -114,26 +114,62 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   Icon(Icons.picture_as_pdf, size: 50, color: Colors.white),
                   SizedBox(height: 10),
-                  Text('Indus Reader', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                  Text('Indus Reader Pro', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
                 ],
               ),
             ),
             ListTile(
+              leading: const Icon(Icons.folder_open, color: Colors.black87),
+              title: const Text('Open File'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickPdf();
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.document_scanner, color: Colors.blue),
-              title: const Text('Scan Document', style: TextStyle(fontSize: 16)),
-              subtitle: const Text('Create a new PDF using Camera'),
+              title: const Text('Scan Document'),
               onTap: () {
                 Navigator.pop(context); 
                 _scanDocument(); 
               },
             ),
             const Divider(),
+            const Padding(
+              padding: EdgeInsets.only(left: 16, top: 8, bottom: 8),
+              child: Text('PDF TOOLS', style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold)),
+            ),
             ListTile(
-              leading: const Icon(Icons.folder),
-              title: const Text('Open File'),
+              leading: const Icon(Icons.merge_type, color: Colors.purple),
+              title: const Text('Merge PDFs'),
               onTap: () {
                 Navigator.pop(context);
-                _pickPdf();
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Merge feature backend coming next!')));
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.call_split, color: Colors.orange),
+              title: const Text('Split PDF'),
+              onTap: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Split feature backend coming next!')));
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.compress, color: Colors.green),
+              title: const Text('Compress PDF'),
+              onTap: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Compress feature backend coming next!')));
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.layers, color: Colors.teal),
+              title: const Text('Organize Pages'),
+              subtitle: const Text('Add, Delete, Reorder', style: TextStyle(fontSize: 12)),
+              onTap: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Page Organizer backend coming next!')));
               },
             ),
           ],

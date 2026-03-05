@@ -4,8 +4,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:google_mlkit_document_scanner/google_mlkit_document_scanner.dart'; 
 import 'package:shared_preferences/shared_preferences.dart'; 
-import 'package:receive_sharing_intent/receive_sharing_intent.dart'; // NAYA IMPORT
-import 'dart:async'; // NAYA IMPORT
+import 'package:receive_sharing_intent/receive_sharing_intent.dart'; 
+import 'dart:async'; 
 import 'dart:io';
 import 'dart:ui'; 
 
@@ -45,7 +45,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   bool _isNightMode = false;
 
-  // --- NAYA: BAHAR SE AANE WALI FILE KE LIYE LISTENER ---
   StreamSubscription? _intentDataStreamSubscription;
 
   @override
@@ -53,7 +52,6 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _loadRecentPdfs();
 
-    // 1. Jab app background (minimize) mein ho aur kisi ne PDF open ki ho
     _intentDataStreamSubscription = ReceiveSharingIntent.instance.getMediaStream().listen((List<SharedMediaFile> value) {
       if (value.isNotEmpty) {
         _openPdf(value.first.path);
@@ -62,7 +60,6 @@ class _HomeScreenState extends State<HomeScreen> {
       debugPrint("Intent Stream Error: $err");
     });
 
-    // 2. Jab app poori tarah se band (closed) ho aur kisi ne PDF par click kiya ho
     ReceiveSharingIntent.instance.getInitialMedia().then((List<SharedMediaFile> value) {
       if (value.isNotEmpty) {
         _openPdf(value.first.path);
@@ -76,19 +73,40 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
+  // --- NAYA JUGAAAD: AUTO-SCAN APP FOLDER WALA FIX ---
   Future<void> _loadRecentPdfs() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _recentPdfs = prefs.getStringList('recent_pdfs') ?? [];
-    });
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      List<FileSystemEntity> files = dir.listSync();
+      List<File> appPdfs = [];
+      
+      for (var file in files) {
+        if (file.path.toLowerCase().endsWith('.pdf')) {
+          appPdfs.add(File(file.path));
+        }
+      }
+      appPdfs.sort((a, b) => b.lastModifiedSync().compareTo(a.lastModifiedSync()));
+      
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      List<String> savedPaths = prefs.getStringList('recent_pdfs') ?? [];
+      List<String> finalRecentList = [];
+      
+      for(var f in appPdfs) finalRecentList.add(f.path);
+      for(String path in savedPaths) {
+        if(!finalRecentList.contains(path) && File(path).existsSync()) finalRecentList.add(path);
+      }
+      setState(() { _recentPdfs = finalRecentList; });
+    } catch (e) {
+      debugPrint("Error loading recent: $e");
+    }
   }
 
   Future<void> _saveToRecent(String path) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    if (!_recentPdfs.contains(path)) {
-      _recentPdfs.insert(0, path); 
-      await prefs.setStringList('recent_pdfs', _recentPdfs);
-      setState(() {}); 
+    List<String> current = prefs.getStringList('recent_pdfs') ?? [];
+    if (!current.contains(path)) {
+      current.insert(0, path); 
+      await prefs.setStringList('recent_pdfs', current);
     }
   }
 
@@ -111,6 +129,8 @@ class _HomeScreenState extends State<HomeScreen> {
       _searchResult?.clear();
     });
 
+    _loadRecentPdfs(); // File khulte hi list refresh hogi
+
     Future.delayed(const Duration(milliseconds: 500), () {
       try {
         _pdfViewerController.annotationSettings.highlight.color = _highlightColor.withOpacity(_highlightOpacity);
@@ -132,6 +152,35 @@ class _HomeScreenState extends State<HomeScreen> {
     if (result != null) {
       _openPdf(result.files.single.path!);
     }
+  }
+
+  // --- NAYA FIX: JUMP TO PAGE DIALOG ---
+  void _showJumpToPageDialog() {
+    TextEditingController pageCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Go to Page'),
+        content: TextField(
+          controller: pageCtrl,
+          keyboardType: TextInputType.number,
+          decoration: InputDecoration(hintText: 'Total Pages: ${_pdfViewerController.pageCount}', border: const OutlineInputBorder()),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () {
+              int? page = int.tryParse(pageCtrl.text);
+              if (page != null && page >= 1 && page <= _pdfViewerController.pageCount) {
+                _pdfViewerController.jumpToPage(page);
+              }
+              Navigator.pop(context);
+            },
+            child: const Text('Go'),
+          )
+        ],
+      ),
+    );
   }
 
   Future<void> _scanDocument() async {
@@ -329,6 +378,7 @@ class _HomeScreenState extends State<HomeScreen> {
               onTap: () {
                 Navigator.pop(context); 
                 setState(() => _selectedPdf = null);
+                _loadRecentPdfs(); // Refresh
               },
             ),
             const Divider(),
@@ -347,45 +397,46 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: EdgeInsets.only(left: 16, top: 8, bottom: 8),
               child: Text('PDF TOOLS', style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold)),
             ),
+            // --- NAYA FIX: AWAIT aur AUTO-REFRESH add kiya saare tools mein ---
             ListTile(
               leading: const Icon(Icons.merge_type, color: Colors.purple),
               title: const Text('Merge PDFs'),
-              onTap: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => const MergeScreen())); },
+              onTap: () async { Navigator.pop(context); await Navigator.push(context, MaterialPageRoute(builder: (context) => const MergeScreen())); _loadRecentPdfs(); },
             ),
             ListTile(
               leading: const Icon(Icons.call_split, color: Colors.orange),
               title: const Text('Split PDF'),
-              onTap: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => const SplitScreen())); },
+              onTap: () async { Navigator.pop(context); await Navigator.push(context, MaterialPageRoute(builder: (context) => const SplitScreen())); _loadRecentPdfs(); },
             ),
             ListTile(
               leading: const Icon(Icons.compress, color: Colors.green),
               title: const Text('Compress PDF'),
-              onTap: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => const CompressScreen())); },
+              onTap: () async { Navigator.pop(context); await Navigator.push(context, MaterialPageRoute(builder: (context) => const CompressScreen())); _loadRecentPdfs(); },
             ),
             ListTile(
               leading: const Icon(Icons.layers, color: Colors.teal),
               title: const Text('Organize Pages'),
-              onTap: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => const OrganizeScreen())); },
+              onTap: () async { Navigator.pop(context); await Navigator.push(context, MaterialPageRoute(builder: (context) => const OrganizeScreen())); _loadRecentPdfs(); },
             ),
             ListTile(
               leading: const Icon(Icons.security, color: Colors.indigoAccent),
               title: const Text('Protect / Unlock PDF'),
-              onTap: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => const PasswordScreen())); },
+              onTap: () async { Navigator.pop(context); await Navigator.push(context, MaterialPageRoute(builder: (context) => const PasswordScreen())); _loadRecentPdfs(); },
             ),
             ListTile(
               leading: const Icon(Icons.image, color: Colors.pinkAccent),
               title: const Text('Image to PDF'),
-              onTap: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => const ImageToPdfScreen())); },
+              onTap: () async { Navigator.pop(context); await Navigator.push(context, MaterialPageRoute(builder: (context) => const ImageToPdfScreen())); _loadRecentPdfs(); },
             ),
             ListTile(
               leading: const Icon(Icons.text_snippet, color: Colors.deepPurpleAccent),
               title: const Text('Image to Text (OCR)'),
-              onTap: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => const OcrScreen())); },
+              onTap: () async { Navigator.pop(context); await Navigator.push(context, MaterialPageRoute(builder: (context) => const OcrScreen())); _loadRecentPdfs(); },
             ),
             ListTile(
               leading: const Icon(Icons.draw, color: Colors.blueGrey),
               title: const Text('Add E-Signature'),
-              onTap: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => const SignatureScreen())); },
+              onTap: () async { Navigator.pop(context); await Navigator.push(context, MaterialPageRoute(builder: (context) => const SignatureScreen())); _loadRecentPdfs(); },
             ),
           ],
         ),
@@ -438,6 +489,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
               if (_selectedPdf != null && !_isDrawingMode)
                 IconButton(icon: const Icon(Icons.search), onPressed: () => setState(() => _isSearching = true)),
+
+              // --- NAYA FIX: JUMP TO PAGE ICON ---
+              if (_selectedPdf != null && !_isDrawingMode) 
+                IconButton(icon: const Icon(Icons.find_in_page), tooltip: 'Go to Page', onPressed: _showJumpToPageDialog),
 
               IconButton(icon: const Icon(Icons.folder_open), onPressed: _pickPdf),
               
@@ -504,7 +559,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         controller: _pdfViewerController, 
                         enableTextSelection: !_isDrawingMode,
                         pageSpacing: 4, 
-                        canShowScrollHead: false, 
+                        // --- NAYA FIX: SCROLLBAR AUR PAGE NUMBER TRUE KIYA ---
+                        canShowScrollHead: true, 
+                        canShowScrollStatus: true,
                         interactionMode: PdfInteractionMode.pan,
                         initialPageNumber: _initialPage,
                         onPageChanged: (PdfPageChangedDetails details) => _saveCurrentPage(details.newPageNumber),
@@ -515,7 +572,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       controller: _pdfViewerController, 
                       enableTextSelection: !_isDrawingMode,
                       pageSpacing: 4, 
-                      canShowScrollHead: false, 
+                      // --- NAYA FIX: SCROLLBAR AUR PAGE NUMBER TRUE KIYA ---
+                      canShowScrollHead: true, 
+                      canShowScrollStatus: true,
                       interactionMode: PdfInteractionMode.pan,
                       initialPageNumber: _initialPage,
                       onPageChanged: (PdfPageChangedDetails details) => _saveCurrentPage(details.newPageNumber),

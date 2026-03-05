@@ -29,8 +29,8 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
-# NAYA: Logo / Icon ki configuration
-flutter_icons:
+# YAHAN CHANGE KIYA HAI: Warning hatane ke liye naya naam lagaya hai
+flutter_launcher_icons:
   android: "ic_launcher"
   ios: true
   image_path: "icon.png"

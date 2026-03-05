@@ -15,6 +15,9 @@ import 'merge_screen.dart';
 import 'split_screen.dart'; 
 import 'compress_screen.dart'; 
 import 'organize_screen.dart'; 
+import 'password_screen.dart'; 
+import 'ocr_screen.dart'; 
+import 'signature_screen.dart'; 
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -33,10 +36,12 @@ class _HomeScreenState extends State<HomeScreen> {
   Color _highlightColor = Colors.yellow;
   double _highlightOpacity = 0.5;
 
-  // --- NAYA: SEARCH FEATURE KE VARIABLES ---
   bool _isSearching = false;
   final TextEditingController _searchController = TextEditingController();
   PdfTextSearchResult? _searchResult;
+
+  // --- NAYA: NIGHT MODE VARIABLE ---
+  bool _isNightMode = false;
 
   @override
   void initState() {
@@ -70,7 +75,6 @@ class _HomeScreenState extends State<HomeScreen> {
       _initialPage = savedPage; 
       _selectedPdf = File(path); 
       _isDrawingMode = false; 
-      // Nayi file khulne par search band kar do
       _isSearching = false;
       _searchController.clear();
       _searchResult?.clear();
@@ -121,20 +125,21 @@ class _HomeScreenState extends State<HomeScreen> {
   void _showHighlighterSettings() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: _isNightMode ? Colors.grey.shade900 : Colors.white,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
+            Color textColor = _isNightMode ? Colors.white : Colors.black87;
             return Padding(
               padding: const EdgeInsets.all(20.0),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Highlighter Style', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  Text('Highlighter Style', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor)),
                   const SizedBox(height: 20),
-                  const Text('Select Color:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  Text('Select Color:', style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
                   const SizedBox(height: 10),
                   
                   SingleChildScrollView(
@@ -158,7 +163,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           decoration: BoxDecoration(
                             color: color,
                             shape: BoxShape.circle,
-                            border: Border.all(color: _highlightColor == color ? Colors.black : Colors.transparent, width: 3),
+                            border: Border.all(color: _highlightColor == color ? ( _isNightMode ? Colors.white : Colors.black) : Colors.transparent, width: 3),
                           ),
                         ),
                       )).toList(),
@@ -166,7 +171,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   
                   const SizedBox(height: 20),
-                  const Text('Transparency (Opacity):', style: TextStyle(fontWeight: FontWeight.bold)),
+                  Text('Transparency (Opacity):', style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
                   
                   Slider(
                     value: _highlightOpacity,
@@ -200,8 +205,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Night Mode ke hisaab se AppBar aur background ka color
+    Color appBarBgColor = _isNightMode ? Colors.black.withOpacity(0.7) : Colors.white.withOpacity(0.4);
+    Color iconTextColor = _isNightMode ? Colors.white : Colors.black87;
+
     return Scaffold(
       extendBodyBehindAppBar: true, 
+      backgroundColor: _isNightMode ? const Color(0xFF121212) : Colors.white,
       
       drawer: Drawer(
         child: ListView(
@@ -243,54 +253,57 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: EdgeInsets.only(left: 16, top: 8, bottom: 8),
               child: Text('PDF TOOLS', style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold)),
             ),
+            
+            // --- SAARE PREMIUM FEATURES KE LINKS ---
             ListTile(
               leading: const Icon(Icons.merge_type, color: Colors.purple),
               title: const Text('Merge PDFs'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(context, MaterialPageRoute(builder: (context) => const MergeScreen()));
-              },
+              onTap: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => const MergeScreen())); },
             ),
             ListTile(
               leading: const Icon(Icons.call_split, color: Colors.orange),
               title: const Text('Split PDF'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(context, MaterialPageRoute(builder: (context) => const SplitScreen()));
-              },
+              onTap: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => const SplitScreen())); },
             ),
             ListTile(
               leading: const Icon(Icons.compress, color: Colors.green),
               title: const Text('Compress PDF'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(context, MaterialPageRoute(builder: (context) => const CompressScreen()));
-              },
+              onTap: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => const CompressScreen())); },
             ),
             ListTile(
               leading: const Icon(Icons.layers, color: Colors.teal),
               title: const Text('Organize Pages'),
-              subtitle: const Text('Add, Delete, Reorder', style: TextStyle(fontSize: 12)),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(context, MaterialPageRoute(builder: (context) => const OrganizeScreen()));
-              },
+              onTap: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => const OrganizeScreen())); },
+            ),
+            ListTile(
+              leading: const Icon(Icons.security, color: Colors.indigoAccent),
+              title: const Text('Protect / Unlock PDF'),
+              onTap: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => const PasswordScreen())); },
+            ),
+            ListTile(
+              leading: const Icon(Icons.text_snippet, color: Colors.deepPurpleAccent),
+              title: const Text('Image to Text (OCR)'),
+              onTap: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => const OcrScreen())); },
+            ),
+            ListTile(
+              leading: const Icon(Icons.draw, color: Colors.blueGrey),
+              title: const Text('Add E-Signature'),
+              onTap: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => const SignatureScreen())); },
             ),
           ],
         ),
       ),
 
-      // --- UPDATED APP BAR WITH SEARCH FEATURE ---
       appBar: AppBar(
         title: _isSearching
             ? TextField(
                 controller: _searchController,
                 autofocus: true,
-                style: const TextStyle(color: Colors.black87),
-                decoration: const InputDecoration(
+                style: TextStyle(color: iconTextColor),
+                decoration: InputDecoration(
                   hintText: 'Search text...',
                   border: InputBorder.none,
-                  hintStyle: TextStyle(color: Colors.black54),
+                  hintStyle: TextStyle(color: _isNightMode ? Colors.grey : Colors.black54),
                 ),
                 onSubmitted: (String text) async {
                   if (text.isNotEmpty) {
@@ -299,63 +312,41 @@ class _HomeScreenState extends State<HomeScreen> {
                   }
                 },
               )
-            : const Text('Indus Reader', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.white.withOpacity(0.4),
+            : Text('Indus Reader', style: TextStyle(color: iconTextColor, fontWeight: FontWeight.bold)),
+        backgroundColor: appBarBgColor,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black87), 
+        iconTheme: IconThemeData(color: iconTextColor), 
         flexibleSpace: ClipRect(
           child: BackdropFilter(filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12), child: Container(color: Colors.transparent)),
         ),
         actions: _isSearching 
           ? [
-              // Search Navigation Icons
-              IconButton(
-                icon: const Icon(Icons.keyboard_arrow_up),
-                tooltip: 'Previous result',
-                onPressed: () {
-                  _searchResult?.previousInstance();
-                },
-              ),
-              IconButton(
-                icon: const Icon(Icons.keyboard_arrow_down),
-                tooltip: 'Next result',
-                onPressed: () {
-                  _searchResult?.nextInstance();
-                },
-              ),
+              IconButton(icon: const Icon(Icons.keyboard_arrow_up), onPressed: () => _searchResult?.previousInstance()),
+              IconButton(icon: const Icon(Icons.keyboard_arrow_down), onPressed: () => _searchResult?.nextInstance()),
               IconButton(
                 icon: const Icon(Icons.close, color: Colors.red),
-                tooltip: 'Cancel Search',
-                onPressed: () {
-                  setState(() {
-                    _isSearching = false;
-                    _searchResult?.clear();
-                    _searchController.clear();
-                  });
-                },
+                onPressed: () => setState(() { _isSearching = false; _searchResult?.clear(); _searchController.clear(); }),
               ),
             ]
           : [
-              // Normal Icons
+              // --- NAYA: NIGHT MODE TOGGLE BUTTON ---
+              IconButton(
+                icon: Icon(_isNightMode ? Icons.wb_sunny : Icons.nightlight_round, color: _isNightMode ? Colors.yellow : Colors.indigo),
+                tooltip: 'Toggle Night Mode',
+                onPressed: () {
+                  setState(() {
+                    _isNightMode = !_isNightMode;
+                  });
+                },
+              ),
+
               if (_selectedPdf != null && !_isDrawingMode)
-                IconButton(
-                  icon: const Icon(Icons.search),
-                  tooltip: 'Search Text',
-                  onPressed: () {
-                    setState(() {
-                      _isSearching = true;
-                    });
-                  },
-                ),
+                IconButton(icon: const Icon(Icons.search), onPressed: () => setState(() => _isSearching = true)),
 
               IconButton(icon: const Icon(Icons.folder_open), onPressed: _pickPdf),
               
               if (_selectedPdf != null && !_isDrawingMode)
-                IconButton(
-                  icon: const Icon(Icons.border_color, color: Colors.orangeAccent),
-                  tooltip: 'Highlighter Settings',
-                  onPressed: _showHighlighterSettings, 
-                ),
+                IconButton(icon: const Icon(Icons.border_color, color: Colors.orangeAccent), onPressed: _showHighlighterSettings),
 
               if (_selectedPdf != null && !_isDrawingMode)
                 PopupMenuButton<String>(
@@ -370,9 +361,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             final dir = await getApplicationDocumentsDirectory();
                             final outputPath = '${dir.path}/wm_${DateTime.now().millisecondsSinceEpoch}.pdf';
                             await PdfServices.addAdvancedWatermark(
-                              inputPath: _selectedPdf!.path, outputPath: outputPath,
-                              text: text.isNotEmpty ? text : "INDUS", color: Colors.red, opacity: opacity,
-                              position: position, allPages: allPages, currentPageIndex: _getCurrentPage(),
+                              inputPath: _selectedPdf!.path, outputPath: outputPath, text: text.isNotEmpty ? text : "INDUS", color: Colors.red, opacity: opacity, position: position, allPages: allPages, currentPageIndex: _getCurrentPage(),
                             );
                             _openPdf(outputPath);
                           },
@@ -386,10 +375,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Updating Links...')));
                             final dir = await getApplicationDocumentsDirectory();
                             final outputPath = '${dir.path}/link_${DateTime.now().millisecondsSinceEpoch}.pdf';
-                            await PdfServices.manageLinks(
-                              inputPath: _selectedPdf!.path, outputPath: outputPath,
-                              pageIndex: _getCurrentPage(), action: action, url: url,
-                            );
+                            await PdfServices.manageLinks(inputPath: _selectedPdf!.path, outputPath: outputPath, pageIndex: _getCurrentPage(), action: action, url: url);
                             _openPdf(outputPath);
                           },
                         ),
@@ -409,18 +395,36 @@ class _HomeScreenState extends State<HomeScreen> {
       body: _selectedPdf != null
           ? Stack(
               children: [
-                SfPdfViewer.file(
-                  _selectedPdf!, 
-                  controller: _pdfViewerController, 
-                  enableTextSelection: !_isDrawingMode,
-                  pageSpacing: 4, 
-                  canShowScrollHead: false, 
-                  interactionMode: PdfInteractionMode.pan,
-                  initialPageNumber: _initialPage,
-                  onPageChanged: (PdfPageChangedDetails details) {
-                    _saveCurrentPage(details.newPageNumber);
-                  },
-                ),
+                // --- NIGHT MODE COLOR INVERSION MAGIC ---
+                _isNightMode
+                  ? ColorFiltered(
+                      colorFilter: const ColorFilter.matrix([
+                        -1,  0,  0, 0, 255, // Invert Red
+                         0, -1,  0, 0, 255, // Invert Green
+                         0,  0, -1, 0, 255, // Invert Blue
+                         0,  0,  0, 1,   0, // Alpha
+                      ]),
+                      child: SfPdfViewer.file(
+                        _selectedPdf!, 
+                        controller: _pdfViewerController, 
+                        enableTextSelection: !_isDrawingMode,
+                        pageSpacing: 4, 
+                        canShowScrollHead: false, 
+                        interactionMode: PdfInteractionMode.pan,
+                        initialPageNumber: _initialPage,
+                        onPageChanged: (PdfPageChangedDetails details) => _saveCurrentPage(details.newPageNumber),
+                      ),
+                    )
+                  : SfPdfViewer.file(
+                      _selectedPdf!, 
+                      controller: _pdfViewerController, 
+                      enableTextSelection: !_isDrawingMode,
+                      pageSpacing: 4, 
+                      canShowScrollHead: false, 
+                      interactionMode: PdfInteractionMode.pan,
+                      initialPageNumber: _initialPage,
+                      onPageChanged: (PdfPageChangedDetails details) => _saveCurrentPage(details.newPageNumber),
+                    ),
                 
                 if (_isDrawingMode)
                   Positioned.fill(
@@ -436,10 +440,7 @@ class _HomeScreenState extends State<HomeScreen> {
                            final dir = await getApplicationDocumentsDirectory();
                            final outputPath = '${dir.path}/drawn_${DateTime.now().millisecondsSinceEpoch}.pdf';
                            
-                           await PdfServices.saveDrawing(
-                             inputPath: _selectedPdf!.path, outputPath: outputPath,
-                             pageIndex: _getCurrentPage(), lines: lines,
-                           );
+                           await PdfServices.saveDrawing(inputPath: _selectedPdf!.path, outputPath: outputPath, pageIndex: _getCurrentPage(), lines: lines);
                            _openPdf(outputPath);
                         },
                       ),
@@ -449,17 +450,22 @@ class _HomeScreenState extends State<HomeScreen> {
             )
           : Container(
               width: double.infinity,
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(colors: [Color(0xFFE3F2FD), Color(0xFFBBDEFB)], begin: Alignment.topCenter, end: Alignment.bottomCenter),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: _isNightMode 
+                      ? [const Color(0xFF1E1E1E), const Color(0xFF000000)] // Dark Gradient
+                      : [const Color(0xFFE3F2FD), const Color(0xFFBBDEFB)], // Light Gradient
+                  begin: Alignment.topCenter, end: Alignment.bottomCenter
+                ),
               ),
               child: _recentPdfs.isEmpty
-                  ? const Center(
+                  ? Center(
                       child: Padding(
-                        padding: EdgeInsets.all(20.0),
+                        padding: const EdgeInsets.all(20.0),
                         child: Text(
                           'Tap the folder icon to open a PDF or open the menu to scan a document.',
                           textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 16, color: Colors.black54),
+                          style: TextStyle(fontSize: 16, color: _isNightMode ? Colors.white70 : Colors.black54),
                         ),
                       ),
                     )
@@ -467,9 +473,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Padding(
-                            padding: EdgeInsets.only(left: 20, top: 80, bottom: 10),
-                            child: Text('Recent Files', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black87)),
+                          Padding(
+                            padding: const EdgeInsets.only(left: 20, top: 80, bottom: 10),
+                            child: Text('Recent Files', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: iconTextColor)),
                           ),
                           Expanded(
                             child: ListView.builder(
@@ -478,6 +484,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 String path = _recentPdfs[index];
                                 String fileName = path.split('/').last;
                                 return Card(
+                                  color: _isNightMode ? Colors.grey.shade800 : Colors.white,
                                   margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                                   elevation: 2,
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -488,8 +495,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                       decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
                                       child: const Icon(Icons.picture_as_pdf, color: Colors.redAccent),
                                     ),
-                                    title: Text(fileName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
-                                    subtitle: Text('Tap to open', style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                                    title: Text(fileName, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: FontWeight.w600, color: iconTextColor)),
+                                    subtitle: Text('Tap to open', style: TextStyle(color: _isNightMode ? Colors.white54 : Colors.grey[600], fontSize: 13)),
                                     onTap: () => _openPdf(path),
                                   ),
                                 );

@@ -92,7 +92,7 @@ class PdfServices {
     document.dispose();
   }
 
-  // --- NAYA: 5. MERGE PDFs FUNCTION ---
+  // 5. MERGE PDFs FUNCTION
   static Future<void> mergePdfs({
     required List<String> inputPaths,
     required String outputPath,
@@ -106,8 +106,6 @@ class PdfServices {
       for (int i = 0; i < tempDoc.pages.count; i++) {
         final PdfPage tempPage = tempDoc.pages[i];
         final PdfPage newPage = finalDoc.pages.add();
-        
-        // Purane page ka template banakar naye page par chipkana
         final PdfTemplate template = tempPage.createTemplate();
         newPage.graphics.drawPdfTemplate(template, const Offset(0, 0));
       }
@@ -116,5 +114,65 @@ class PdfServices {
 
     File(outputPath).writeAsBytesSync(await finalDoc.save());
     finalDoc.dispose();
+  }
+
+  // 6. SPLIT PDF FUNCTION
+  static Future<void> splitPdf({
+    required String inputPath, required String outputPath,
+    required int startPage, required int endPage,
+  }) async {
+    final List<int> bytes = File(inputPath).readAsBytesSync();
+    final PdfDocument document = PdfDocument(inputBytes: bytes);
+    final PdfDocument newDocument = PdfDocument();
+
+    // Loop chala kar sirf wahi pages nayi PDF mein dalenge jo user ne mange hain
+    for (int i = startPage - 1; i < endPage; i++) {
+      if (i >= 0 && i < document.pages.count) {
+        final PdfPage tempPage = document.pages[i];
+        final PdfPage newPage = newDocument.pages.add();
+        final PdfTemplate template = tempPage.createTemplate();
+        newPage.graphics.drawPdfTemplate(template, const Offset(0, 0));
+      }
+    }
+
+    File(outputPath).writeAsBytesSync(await newDocument.save());
+    newDocument.dispose();
+    document.dispose();
+  }
+
+  // 7. COMPRESS PDF FUNCTION
+  static Future<void> compressPdf({
+    required String inputPath, required String outputPath,
+  }) async {
+    final List<int> bytes = File(inputPath).readAsBytesSync();
+    final PdfDocument document = PdfDocument(inputBytes: bytes);
+    
+    // File structure aur data ko best compression level par set karna
+    document.compressionLevel = PdfCompressionLevel.best;
+    
+    File(outputPath).writeAsBytesSync(await document.save());
+    document.dispose();
+  }
+
+  // 8. ORGANIZE (DELETE) PAGES FUNCTION
+  static Future<void> removePages({
+    required String inputPath, required String outputPath,
+    required List<int> pagesToDelete, // 0-based index ki list aayegi
+  }) async {
+    final List<int> bytes = File(inputPath).readAsBytesSync();
+    final PdfDocument document = PdfDocument(inputBytes: bytes);
+
+    // List ko ulta (descending) sort karna zaroori hai, taaki aage ke page delete karne par 
+    // peeche wale pages ka index number kharab na ho
+    pagesToDelete.sort((a, b) => b.compareTo(a));
+
+    for (int index in pagesToDelete) {
+      if (index >= 0 && index < document.pages.count) {
+        document.pages.removeAt(index);
+      }
+    }
+
+    File(outputPath).writeAsBytesSync(await document.save());
+    document.dispose();
   }
 }

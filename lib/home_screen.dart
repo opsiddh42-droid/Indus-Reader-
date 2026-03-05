@@ -11,6 +11,7 @@ import 'pdf_services.dart';
 import 'watermark_dialog.dart';
 import 'link_dialog.dart';
 import 'drawing_canvas.dart';
+import 'merge_screen.dart'; // NAYA IMPORT: Merge Screen ko jodne ke liye
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -101,7 +102,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       extendBodyBehindAppBar: true, 
       
-      // --- UPDATED DRAWER WITH PRO FEATURES ---
       drawer: Drawer(
         child: ListView(
           padding: EdgeInsets.zero,
@@ -139,20 +139,24 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: EdgeInsets.only(left: 16, top: 8, bottom: 8),
               child: Text('PDF TOOLS', style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold)),
             ),
+            
+            // --- YAHAN MERGE BUTTON KO NAYE PAGE SE JODA HAI ---
             ListTile(
               leading: const Icon(Icons.merge_type, color: Colors.purple),
               title: const Text('Merge PDFs'),
               onTap: () {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Merge feature backend coming next!')));
+                Navigator.pop(context); // Menu band karna
+                // Nayi Merge screen par le jana
+                Navigator.push(context, MaterialPageRoute(builder: (context) => const MergeScreen()));
               },
             ),
+            
             ListTile(
               leading: const Icon(Icons.call_split, color: Colors.orange),
               title: const Text('Split PDF'),
               onTap: () {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Split feature backend coming next!')));
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Split feature screen coming next!')));
               },
             ),
             ListTile(
@@ -160,7 +164,7 @@ class _HomeScreenState extends State<HomeScreen> {
               title: const Text('Compress PDF'),
               onTap: () {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Compress feature backend coming next!')));
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Compress feature screen coming next!')));
               },
             ),
             ListTile(
@@ -169,7 +173,7 @@ class _HomeScreenState extends State<HomeScreen> {
               subtitle: const Text('Add, Delete, Reorder', style: TextStyle(fontSize: 12)),
               onTap: () {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Page Organizer backend coming next!')));
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Page Organizer screen coming next!')));
               },
             ),
           ],

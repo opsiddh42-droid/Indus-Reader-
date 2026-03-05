@@ -29,9 +29,9 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
-# YAHAN CHANGE KIYA HAI: Warning hatane ke liye naya naam lagaya hai
+# YAHAN CHANGE KIYA HAI: iOS ko false kar diya taaki error na aaye
 flutter_launcher_icons:
   android: "ic_launcher"
-  ios: true
+  ios: false
   image_path: "icon.png"
   min_sdk_android: 21

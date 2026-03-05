@@ -67,24 +67,47 @@ class PdfServices {
     document.dispose();
   }
 
-  // 4. DRAWING AUR HIGHLIGHT SAVE KARNA
+  // --- UPDATED: 4. DRAWING SAVE (Fixed Coordinates) ---
   static Future<void> saveDrawing({
     required String inputPath, required String outputPath,
     required int pageIndex, required List<DrawnLine> lines,
+    required Size screenSize, required Offset scrollOffset, required double zoomLevel
   }) async {
     final List<int> bytes = File(inputPath).readAsBytesSync();
     final PdfDocument document = PdfDocument(inputBytes: bytes);
     final PdfPage page = document.pages[pageIndex];
 
+    Size pageSize = page.size; 
+    
+    // Scale nikalna: Screen ke mukable PDF kitna bada/chota hai
+    double scale = pageSize.width / screenSize.width;
+    double screenPageHeight = pageSize.height / scale;
+    double previousPagesOffset = pageIndex * (screenPageHeight + 4); 
+
     for (var line in lines) {
       PdfColor pdfColor = PdfColor(line.color.red, line.color.green, line.color.blue);
-      PdfPen pen = PdfPen(pdfColor, width: line.width);
+      PdfPen pen = PdfPen(pdfColor, width: (line.width * scale) / zoomLevel); 
       
       page.graphics.save();
       page.graphics.setTransparency(line.color.opacity);
 
       for (int i = 0; i < line.path.length - 1; i++) {
-        page.graphics.drawLine(pen, line.path[i], line.path[i + 1]);
+        double absX1 = (line.path[i].dx + scrollOffset.dx) / zoomLevel;
+        double absY1 = (line.path[i].dy + scrollOffset.dy) / zoomLevel;
+        
+        double absX2 = (line.path[i+1].dx + scrollOffset.dx) / zoomLevel;
+        double absY2 = (line.path[i+1].dy + scrollOffset.dy) / zoomLevel;
+
+        double localY1 = absY1 - previousPagesOffset;
+        double localY2 = absY2 - previousPagesOffset;
+
+        double pdfX1 = absX1 * scale;
+        double pdfY1 = localY1 * scale;
+        
+        double pdfX2 = absX2 * scale;
+        double pdfY2 = localY2 * scale;
+
+        page.graphics.drawLine(pen, Offset(pdfX1, pdfY1), Offset(pdfX2, pdfY2));
       }
       page.graphics.restore();
     }
@@ -125,7 +148,6 @@ class PdfServices {
     final PdfDocument document = PdfDocument(inputBytes: bytes);
     final PdfDocument newDocument = PdfDocument();
 
-    // Loop chala kar sirf wahi pages nayi PDF mein dalenge jo user ne mange hain
     for (int i = startPage - 1; i < endPage; i++) {
       if (i >= 0 && i < document.pages.count) {
         final PdfPage tempPage = document.pages[i];
@@ -147,7 +169,6 @@ class PdfServices {
     final List<int> bytes = File(inputPath).readAsBytesSync();
     final PdfDocument document = PdfDocument(inputBytes: bytes);
     
-    // File structure aur data ko best compression level par set karna
     document.compressionLevel = PdfCompressionLevel.best;
     
     File(outputPath).writeAsBytesSync(await document.save());
@@ -157,13 +178,11 @@ class PdfServices {
   // 8. ORGANIZE (DELETE) PAGES FUNCTION
   static Future<void> removePages({
     required String inputPath, required String outputPath,
-    required List<int> pagesToDelete, // 0-based index ki list aayegi
+    required List<int> pagesToDelete, 
   }) async {
     final List<int> bytes = File(inputPath).readAsBytesSync();
     final PdfDocument document = PdfDocument(inputBytes: bytes);
 
-    // List ko ulta (descending) sort karna zaroori hai, taaki aage ke page delete karne par 
-    // peeche wale pages ka index number kharab na ho
     pagesToDelete.sort((a, b) => b.compareTo(a));
 
     for (int index in pagesToDelete) {
@@ -176,14 +195,13 @@ class PdfServices {
     document.dispose();
   }
 
-  // --- NAYA: 9. PASSWORD PROTECT PDF (Lock) ---
+  // 9. PASSWORD PROTECT PDF (Lock)
   static Future<void> protectPdf({
     required String inputPath, required String outputPath, required String password,
   }) async {
     final List<int> bytes = File(inputPath).readAsBytesSync();
     final PdfDocument document = PdfDocument(inputBytes: bytes);
     
-    // 256-bit AES Encryption lagana (High Security)
     final PdfSecurity security = document.security;
     security.userPassword = password;
     security.ownerPassword = password;
@@ -193,15 +211,13 @@ class PdfServices {
     document.dispose();
   }
 
-  // --- NAYA: 10. REMOVE PASSWORD (Unlock) ---
+  // 10. REMOVE PASSWORD (Unlock)
   static Future<void> unlockPdf({
     required String inputPath, required String outputPath, required String password,
   }) async {
     final List<int> bytes = File(inputPath).readAsBytesSync();
-    // File ko purane password ke sath kholna
     final PdfDocument document = PdfDocument(inputBytes: bytes, password: password);
     
-    // Password hata dena
     document.security.userPassword = '';
     document.security.ownerPassword = '';
 
@@ -209,7 +225,7 @@ class PdfServices {
     document.dispose();
   }
 
-  // --- NAYA: 11. ADD E-SIGNATURE ---
+  // 11. ADD E-SIGNATURE
   static Future<void> addSignature({
     required String inputPath, required String outputPath,
     required int pageIndex, required List<DrawnLine> lines,
@@ -217,18 +233,15 @@ class PdfServices {
     final List<int> bytes = File(inputPath).readAsBytesSync();
     final PdfDocument document = PdfDocument(inputBytes: bytes);
     
-    // Check karna ki page number sahi ho
     if (pageIndex >= 0 && pageIndex < document.pages.count) {
       final PdfPage page = document.pages[pageIndex];
       page.graphics.save();
       
-      // Signature ko page ke neeche right side (bottom-right) mein set karna
       page.graphics.translateTransform(page.size.width - 320, page.size.height - 170);
 
       for (var line in lines) {
-        // Dark Blue color (jaise real pen ki ink hoti hai)
         PdfColor pdfColor = PdfColor(0, 0, 150); 
-        PdfPen pen = PdfPen(pdfColor, width: 3); // Pen ki motai
+        PdfPen pen = PdfPen(pdfColor, width: 3); 
         
         for (int i = 0; i < line.path.length - 1; i++) {
           page.graphics.drawLine(pen, line.path[i], line.path[i + 1]);

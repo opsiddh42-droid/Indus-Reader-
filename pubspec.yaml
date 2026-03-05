@@ -18,6 +18,8 @@ dependencies:
   google_mlkit_text_recognition: any
   # NAYA: Document Scanner ke liye library add ki hai
   google_mlkit_document_scanner: any
+  receive_sharing_intent: ^1.6.2
+
 
 flutter:
   uses-material-design: true

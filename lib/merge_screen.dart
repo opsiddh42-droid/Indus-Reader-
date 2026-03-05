@@ -56,10 +56,9 @@ class _MergeScreenState extends State<MergeScreen> {
 
       setState(() => _isMerging = false);
       
-      // Merge hone ke baad success message aur pichle page par wapas jana
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('PDFs Merged Successfully! Check Recent Files on Home.'), backgroundColor: Colors.green));
-        Navigator.pop(context); // Wapas Home Screen par bhej dega
+        Navigator.pop(context); 
       }
     } catch (e) {
       setState(() => _isMerging = false);
@@ -99,7 +98,8 @@ class _MergeScreenState extends State<MergeScreen> {
                           title: Text(fileName, maxLines: 1, overflow: TextOverflow.ellipsis),
                           trailing: IconButton(
                             icon: const Icon(Icons.remove_circle, color: Colors.red),
-                            onTap: () => _removeFile(index), // List se hatana
+                            // YAHAN FIX KIYA HAI: onTap ki jagah onPressed aayega
+                            onPressed: () => _removeFile(index), 
                           ),
                         ),
                       );

@@ -6,7 +6,6 @@ on:
       - main
   workflow_dispatch:
 
-# Ye permission zaroori hai direct link banane ke liye
 permissions:
   contents: write 
 
@@ -29,11 +28,12 @@ jobs:
         with:
           channel: 'stable'
 
-      # YAHAN SE 'Generate Missing Android Files' WALA STEP HATA DIYA HAI
-      # Kyunki humara custom android folder ab repo mein save hai!
-
       - name: Install Dependencies
         run: flutter pub get
+
+      # NAYA: Icon ko zabardasti APK banne se pehle generate karna
+      - name: Generate App Icon
+        run: flutter pub run flutter_launcher_icons
 
       - name: Build APK
         run: flutter build apk --debug

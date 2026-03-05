@@ -162,8 +162,9 @@ class _SignatureScreenState extends State<SignatureScreen> {
                         setState(() {
                           RenderBox box = context.findRenderObject() as RenderBox;
                           Offset point = box.globalToLocal(details.globalPosition);
-                          // Adjusting for padding/margin
-                          _currentLine = DrawnLine([point], Colors.black, 3.0);
+                          
+                          // --- YAHAN ERROR FIX KIYA HAI ---
+                          _currentLine = DrawnLine(path: [point], color: Colors.black, width: 3.0);
                         });
                       },
                       onPanUpdate: (details) {

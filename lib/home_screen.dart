@@ -4,6 +4,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:google_mlkit_document_scanner/google_mlkit_document_scanner.dart'; 
 import 'package:shared_preferences/shared_preferences.dart'; 
+import 'package:receive_sharing_intent/receive_sharing_intent.dart'; // NAYA IMPORT
+import 'dart:async'; // NAYA IMPORT
 import 'dart:io';
 import 'dart:ui'; 
 
@@ -18,6 +20,7 @@ import 'organize_screen.dart';
 import 'password_screen.dart'; 
 import 'ocr_screen.dart'; 
 import 'signature_screen.dart'; 
+import 'image_to_pdf_screen.dart'; 
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -42,10 +45,35 @@ class _HomeScreenState extends State<HomeScreen> {
 
   bool _isNightMode = false;
 
+  // --- NAYA: BAHAR SE AANE WALI FILE KE LIYE LISTENER ---
+  StreamSubscription? _intentDataStreamSubscription;
+
   @override
   void initState() {
     super.initState();
     _loadRecentPdfs();
+
+    // 1. Jab app background (minimize) mein ho aur kisi ne PDF open ki ho
+    _intentDataStreamSubscription = ReceiveSharingIntent.instance.getMediaStream().listen((List<SharedMediaFile> value) {
+      if (value.isNotEmpty) {
+        _openPdf(value.first.path);
+      }
+    }, onError: (err) {
+      debugPrint("Intent Stream Error: $err");
+    });
+
+    // 2. Jab app poori tarah se band (closed) ho aur kisi ne PDF par click kiya ho
+    ReceiveSharingIntent.instance.getInitialMedia().then((List<SharedMediaFile> value) {
+      if (value.isNotEmpty) {
+        _openPdf(value.first.path);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _intentDataStreamSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadRecentPdfs() async {
@@ -65,6 +93,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _openPdf(String path) async {
+    if (path.startsWith('file://')) {
+      path = path.replaceFirst('file://', '');
+    }
+    
     SharedPreferences prefs = await SharedPreferences.getInstance();
     int savedPage = prefs.getInt('page_$path') ?? 1;
 
@@ -102,7 +134,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // --- NAYA: SCANNER FIX (Rename aur Permanent Save) ---
   Future<void> _scanDocument() async {
     try {
       final documentScanner = DocumentScanner(
@@ -120,7 +151,6 @@ class _HomeScreenState extends State<HomeScreen> {
         
         TextEditingController nameController = TextEditingController();
         
-        // Dialog box jisme user file ka naam type karega
         showDialog(
           context: context,
           barrierDismissible: false,
@@ -139,7 +169,6 @@ class _HomeScreenState extends State<HomeScreen> {
               TextButton(
                 onPressed: () {
                   Navigator.pop(context); 
-                  // Agar user cancel kar de, toh default naam se save kar lo
                   _saveAndOpenScannedPdf(tempPdfPath, 'Scanned_${DateTime.now().millisecondsSinceEpoch}');
                 },
                 child: const Text('Save Default', style: TextStyle(color: Colors.grey)),
@@ -167,7 +196,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // Helper function: File ko Temp se Permanent folder mein copy karna
   Future<void> _saveAndOpenScannedPdf(String tempPath, String fileName) async {
     try {
       if (!fileName.toLowerCase().endsWith('.pdf')) {
@@ -176,10 +204,8 @@ class _HomeScreenState extends State<HomeScreen> {
       final dir = await getApplicationDocumentsDirectory();
       final savedPath = '${dir.path}/$fileName';
       
-      // Temporary file ko app ke main storage mein copy karna
       await File(tempPath).copy(savedPath);
-      
-      _openPdf(savedPath); // Nayi save ki hui file open karna
+      _openPdf(savedPath); 
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Saved as $fileName'), backgroundColor: Colors.green));
@@ -190,7 +216,6 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     }
   }
-  // --------------------------------------------------
 
   void _showHighlighterSettings() {
     showModalBottomSheet(
@@ -346,6 +371,11 @@ class _HomeScreenState extends State<HomeScreen> {
               leading: const Icon(Icons.security, color: Colors.indigoAccent),
               title: const Text('Protect / Unlock PDF'),
               onTap: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => const PasswordScreen())); },
+            ),
+            ListTile(
+              leading: const Icon(Icons.image, color: Colors.pinkAccent),
+              title: const Text('Image to PDF'),
+              onTap: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => const ImageToPdfScreen())); },
             ),
             ListTile(
               leading: const Icon(Icons.text_snippet, color: Colors.deepPurpleAccent),
@@ -505,7 +535,19 @@ class _HomeScreenState extends State<HomeScreen> {
                            final dir = await getApplicationDocumentsDirectory();
                            final outputPath = '${dir.path}/drawn_${DateTime.now().millisecondsSinceEpoch}.pdf';
                            
-                           await PdfServices.saveDrawing(inputPath: _selectedPdf!.path, outputPath: outputPath, pageIndex: _getCurrentPage(), lines: lines);
+                           final Size screenSize = MediaQuery.of(context).size;
+                           final Offset scrollOffset = _pdfViewerController.scrollOffset;
+                           final double zoomLevel = _pdfViewerController.zoomLevel;
+
+                           await PdfServices.saveDrawing(
+                             inputPath: _selectedPdf!.path, 
+                             outputPath: outputPath, 
+                             pageIndex: _getCurrentPage(), 
+                             lines: lines,
+                             screenSize: screenSize,
+                             scrollOffset: scrollOffset,
+                             zoomLevel: zoomLevel,
+                           );
                            _openPdf(outputPath);
                         },
                       ),

@@ -175,4 +175,69 @@ class PdfServices {
     File(outputPath).writeAsBytesSync(await document.save());
     document.dispose();
   }
+
+  // --- NAYA: 9. PASSWORD PROTECT PDF (Lock) ---
+  static Future<void> protectPdf({
+    required String inputPath, required String outputPath, required String password,
+  }) async {
+    final List<int> bytes = File(inputPath).readAsBytesSync();
+    final PdfDocument document = PdfDocument(inputBytes: bytes);
+    
+    // 256-bit AES Encryption lagana (High Security)
+    final PdfSecurity security = document.security;
+    security.userPassword = password;
+    security.ownerPassword = password;
+    security.algorithm = PdfEncryptionAlgorithm.aesx256Bit;
+
+    File(outputPath).writeAsBytesSync(await document.save());
+    document.dispose();
+  }
+
+  // --- NAYA: 10. REMOVE PASSWORD (Unlock) ---
+  static Future<void> unlockPdf({
+    required String inputPath, required String outputPath, required String password,
+  }) async {
+    final List<int> bytes = File(inputPath).readAsBytesSync();
+    // File ko purane password ke sath kholna
+    final PdfDocument document = PdfDocument(inputBytes: bytes, password: password);
+    
+    // Password hata dena
+    document.security.userPassword = '';
+    document.security.ownerPassword = '';
+
+    File(outputPath).writeAsBytesSync(await document.save());
+    document.dispose();
+  }
+
+  // --- NAYA: 11. ADD E-SIGNATURE ---
+  static Future<void> addSignature({
+    required String inputPath, required String outputPath,
+    required int pageIndex, required List<DrawnLine> lines,
+  }) async {
+    final List<int> bytes = File(inputPath).readAsBytesSync();
+    final PdfDocument document = PdfDocument(inputBytes: bytes);
+    
+    // Check karna ki page number sahi ho
+    if (pageIndex >= 0 && pageIndex < document.pages.count) {
+      final PdfPage page = document.pages[pageIndex];
+      page.graphics.save();
+      
+      // Signature ko page ke neeche right side (bottom-right) mein set karna
+      page.graphics.translateTransform(page.size.width - 320, page.size.height - 170);
+
+      for (var line in lines) {
+        // Dark Blue color (jaise real pen ki ink hoti hai)
+        PdfColor pdfColor = PdfColor(0, 0, 150); 
+        PdfPen pen = PdfPen(pdfColor, width: 3); // Pen ki motai
+        
+        for (int i = 0; i < line.path.length - 1; i++) {
+          page.graphics.drawLine(pen, line.path[i], line.path[i + 1]);
+        }
+      }
+      page.graphics.restore();
+    }
+
+    File(outputPath).writeAsBytesSync(await document.save());
+    document.dispose();
+  }
 }

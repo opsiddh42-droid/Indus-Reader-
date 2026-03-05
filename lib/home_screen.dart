@@ -14,7 +14,7 @@ import 'drawing_canvas.dart';
 import 'merge_screen.dart'; 
 import 'split_screen.dart'; 
 import 'compress_screen.dart'; 
-import 'organize_screen.dart'; // NAYA IMPORT: Organize Screen ke liye
+import 'organize_screen.dart'; 
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -28,6 +28,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isDrawingMode = false;
   
   List<String> _recentPdfs = [];
+  int _initialPage = 1; // NAYA: PDF kahan khulni chahiye
 
   @override
   void initState() {
@@ -51,53 +52,58 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _pickPdf() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['pdf']);
-    if (result != null) {
-      String path = result.files.single.path!;
-      await _saveToRecent(path);
-      setState(() => _selectedPdf = File(path));
+  // --- NAYA: SMART OPEN FUNCTION (Fast Load & Resume Page) ---
+  Future<void> _openPdf(String path) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    // Pichli baar kaunse page par the wo check karega (default 1)
+    int savedPage = prefs.getInt('page_$path') ?? 1;
+
+    await _saveToRecent(path);
+    
+    setState(() {
+      _initialPage = savedPage; // Page number set kiya
+      _selectedPdf = File(path); // File open ki
+      _isDrawingMode = false; // Drawing mode reset kiya
+    });
+  }
+
+  // --- NAYA: JAB PAGE CHANGE HO TOH SAVE KARNA ---
+  Future<void> _saveCurrentPage(int pageNumber) async {
+    if (_selectedPdf != null) {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('page_${_selectedPdf!.path}', pageNumber);
     }
   }
 
-  Future<void> _reloadEditedPdf(String newPath) async {
-    await _saveToRecent(newPath); 
-    setState(() => _selectedPdf = File(newPath));
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('PDF Updated Successfully!')));
-  }
-
-  int _getCurrentPage() {
-    int page = _pdfViewerController.pageNumber - 1;
-    return page < 0 ? 0 : page;
+  Future<void> _pickPdf() async {
+    FilePickerResult? result = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['pdf']);
+    if (result != null) {
+      _openPdf(result.files.single.path!);
+    }
   }
 
   Future<void> _scanDocument() async {
     try {
       final documentScanner = DocumentScanner(
-        options: DocumentScannerOptions(
-          mode: ScannerMode.full,
-          pageLimit: 20, 
-        ),
+        options: DocumentScannerOptions(mode: ScannerMode.full, pageLimit: 20),
       );
-
       final result = await documentScanner.scanDocument();
-      
       if (result.pdf != null) {
         String scannedPdfPath = result.pdf!.uri;
         if (scannedPdfPath.startsWith('file://')) {
           scannedPdfPath = scannedPdfPath.replaceFirst('file://', '');
         }
-        
-        await _saveToRecent(scannedPdfPath);
-        setState(() {
-          _selectedPdf = File(scannedPdfPath);
-        });
-        
+        _openPdf(scannedPdfPath);
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Document Scanned Successfully!')));
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Scanning Cancelled.')));
     }
+  }
+
+  int _getCurrentPage() {
+    int page = _pdfViewerController.pageNumber - 1;
+    return page < 0 ? 0 : page;
   }
 
   @override
@@ -121,29 +127,35 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
             ),
+            
+            // --- NAYA: HOME BUTTON ---
+            ListTile(
+              leading: const Icon(Icons.home, color: Colors.indigo),
+              title: const Text('Home / Recent Files', style: TextStyle(fontWeight: FontWeight.bold)),
+              onTap: () {
+                Navigator.pop(context); // Drawer band karega
+                setState(() {
+                  _selectedPdf = null; // Wapas Home par le aayega
+                });
+              },
+            ),
+            const Divider(),
+
             ListTile(
               leading: const Icon(Icons.folder_open, color: Colors.black87),
               title: const Text('Open File'),
-              onTap: () {
-                Navigator.pop(context);
-                _pickPdf();
-              },
+              onTap: () { Navigator.pop(context); _pickPdf(); },
             ),
             ListTile(
               leading: const Icon(Icons.document_scanner, color: Colors.blue),
               title: const Text('Scan Document'),
-              onTap: () {
-                Navigator.pop(context); 
-                _scanDocument(); 
-              },
+              onTap: () { Navigator.pop(context); _scanDocument(); },
             ),
             const Divider(),
             const Padding(
               padding: EdgeInsets.only(left: 16, top: 8, bottom: 8),
               child: Text('PDF TOOLS', style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold)),
             ),
-            
-            // --- SAARE TOOLS AB CONNECTED HAIN ---
             ListTile(
               leading: const Icon(Icons.merge_type, color: Colors.purple),
               title: const Text('Merge PDFs'),
@@ -213,7 +225,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           text: text.isNotEmpty ? text : "INDUS", color: Colors.red, opacity: opacity,
                           position: position, allPages: allPages, currentPageIndex: _getCurrentPage(),
                         );
-                        _reloadEditedPdf(outputPath);
+                        _openPdf(outputPath);
                       },
                     ),
                   );
@@ -229,7 +241,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           inputPath: _selectedPdf!.path, outputPath: outputPath,
                           pageIndex: _getCurrentPage(), action: action, url: url,
                         );
-                        _reloadEditedPdf(outputPath);
+                        _openPdf(outputPath);
                       },
                     ),
                   );
@@ -255,6 +267,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   pageSpacing: 4, 
                   canShowScrollHead: false, 
                   interactionMode: PdfInteractionMode.pan,
+                  
+                  // --- NAYA: INITIAL PAGE (Fast Load) AUR SAVE PAGE ---
+                  initialPageNumber: _initialPage,
+                  onPageChanged: (PdfPageChangedDetails details) {
+                    _saveCurrentPage(details.newPageNumber);
+                  },
                 ),
                 
                 if (_isDrawingMode)
@@ -275,7 +293,7 @@ class _HomeScreenState extends State<HomeScreen> {
                              inputPath: _selectedPdf!.path, outputPath: outputPath,
                              pageIndex: _getCurrentPage(), lines: lines,
                            );
-                           _reloadEditedPdf(outputPath);
+                           _openPdf(outputPath);
                         },
                       ),
                     ),
@@ -325,7 +343,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ),
                                     title: Text(fileName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
                                     subtitle: Text('Tap to open', style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-                                    onTap: () => setState(() => _selectedPdf = File(path)),
+                                    
+                                    // NAYA: Recent File se tap karne par smartly open hoga
+                                    onTap: () => _openPdf(path),
                                   ),
                                 );
                               },

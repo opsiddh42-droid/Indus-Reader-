@@ -1,9 +1,20 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart'; 
 import 'package:llama_cpp_dart/llama_cpp_dart.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+
+// Isolate ke liye top-level function zaroori hai
+Llama _loadLlamaModel(String path) {
+  // Model parameters to reduce memory spike (LMK fix)
+  final params = ModelParams()
+    ..nCtx = 256 // Reduced context size
+    ..nBatch = 32 // Reduced batch size
+    ..nThreads = 2; // Limit CPU threads
+    
+  return Llama(path, params); 
+}
 
 class LocalAIService {
   Llama? _llama; 
@@ -13,12 +24,12 @@ class LocalAIService {
   Future<void> initAI() async {
     try {
       Directory tempDir = await getApplicationDocumentsDirectory();
-      String localPath = '${tempDir.path}/tinyllama.gguf';
+      String localPath = '${tempDir.path}/tinyllama.gguf'; // Default path, can be any model name
       File localFile = File(localPath);
 
-      // Agar model pehle se app ke andar hai, to direct load kar lo
       if (await localFile.exists()) {
-        _llama = Llama(localPath); 
+        // Run initialization in an Isolate to prevent ANR
+        _llama = await compute(_loadLlamaModel, localPath);
         isModelLoaded = true;
         modelStatus = "AI Model Ready!";
       } else {
@@ -26,28 +37,29 @@ class LocalAIService {
       }
     } catch (e) {
       modelStatus = "AI Error: $e";
+      print("Init AI Error: $e");
     }
   }
 
-  // Model manually pick karne ka naya function
   Future<bool> pickAndLoadModel() async {
     try {
       modelStatus = "File manager open ho raha hai...";
       FilePickerResult? result = await FilePicker.platform.pickFiles(
-        dialogTitle: 'Select TinyLlama.gguf model',
+        dialogTitle: 'Select Model (.gguf)',
       );
 
       if (result != null && result.files.single.path != null) {
         String pickedPath = result.files.single.path!;
-        modelStatus = "Model copy ho raha hai... (Wait karein)";
+        modelStatus = "Model load ho raha hai... (Wait karein)";
         
         Directory tempDir = await getApplicationDocumentsDirectory();
-        String localPath = '${tempDir.path}/tinyllama.gguf';
+        // Hamesha ek hi naam se save karte hain aasan management ke liye
+        String localPath = '${tempDir.path}/tinyllama.gguf'; 
         
-        // File.copy() RAM full nahi karta, ye safe tarika hai
         await File(pickedPath).copy(localPath);
         
-        _llama = Llama(localPath);
+        // Run initialization in an Isolate to prevent ANR
+        _llama = await compute(_loadLlamaModel, localPath);
         isModelLoaded = true;
         modelStatus = "AI Model Ready!";
         return true;
@@ -55,7 +67,8 @@ class LocalAIService {
       modelStatus = "Aapne koi file select nahi ki.";
       return false;
     } catch (e) {
-      modelStatus = "Copy karne me error: $e";
+      modelStatus = "Load karne me error: $e";
+      print("Pick Model Error: $e");
       return false;
     }
   }
@@ -78,13 +91,17 @@ class LocalAIService {
     required int pageNumber, 
     required String userCommand
   }) async {
-    // Agar model nahi hai, to direct bol do
     if (!isModelLoaded || _llama == null) {
-      return "ERROR_MODEL_MISSING"; // Hum is error ko HomeScreen me handle karenge
+      return "ERROR_MODEL_MISSING"; 
     }
 
     String pdfText = await extractTextFromCurrentPage(pdfFilePath, pageNumber);
     if (pdfText.isEmpty) return "Is page par AI ko koi text nahi mila.";
+
+    // Truncate text to fit the small context window
+    if (pdfText.length > 500) {
+        pdfText = pdfText.substring(0, 500);
+    }
 
     String prompt = "Text: $pdfText\nQuestion: $userCommand\nAnswer:";
 

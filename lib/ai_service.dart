@@ -1,64 +1,38 @@
 import 'dart:io';
-import 'package:path_provider/path_provider.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart'; 
-import 'package:llama_cpp_dart/llama_cpp_dart.dart';
-import 'package:file_picker/file_picker.dart';
+import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class LocalAIService {
-  Llama? _llama; 
   bool isModelLoaded = false;
-  String modelStatus = "AI engine start ho raha hai...";
+  String modelStatus = "Cloud AI Initializing...";
+  late final GenerativeModel _model;
 
   Future<void> initAI() async {
     try {
-      Directory tempDir = await getApplicationDocumentsDirectory();
-      String localPath = '${tempDir.path}/tinyllama.gguf'; 
-      File localFile = File(localPath);
-
-      if (await localFile.exists()) {
-        // Isolate (compute) hata diya hai taaki C++ Pointer Crash na ho.
-        // App 2-3 second freeze hoga jab model load hoga, ghabrana mat.
-        _llama = Llama(localPath);
-        isModelLoaded = true;
-        modelStatus = "AI Model Ready!";
-      } else {
-        modelStatus = "Model missing. Kripya AI button daba kar model select karein.";
+      // .env file se secure API key fetch kar rahe hain
+      final String apiKey = dotenv.env['GEMINI_API_KEY'] ?? ""; 
+      
+      if (apiKey.isEmpty) {
+        modelStatus = "API Key missing! GitHub secrets aur .env file check karein.";
+        return;
       }
+
+      // Naya aur fast Gemini 1.5 Flash model
+      _model = GenerativeModel(model: 'gemini-1.5-flash', apiKey: apiKey);
+      isModelLoaded = true;
+      modelStatus = "AI Model Ready!";
     } catch (e) {
       modelStatus = "AI Error: $e";
       print("Init AI Error: $e");
     }
   }
 
+  // Ab file picker ki zarurat nahi, par UI crash na ho isliye ye function wahi rakha hai
   Future<bool> pickAndLoadModel() async {
-    try {
-      modelStatus = "File manager open ho raha hai...";
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        dialogTitle: 'Select Model (.gguf)',
-      );
-
-      if (result != null && result.files.single.path != null) {
-        String pickedPath = result.files.single.path!;
-        modelStatus = "Model load ho raha hai... (Wait karein)";
-        
-        Directory tempDir = await getApplicationDocumentsDirectory();
-        String localPath = '${tempDir.path}/tinyllama.gguf'; 
-        
-        await File(pickedPath).copy(localPath);
-        
-        // Seedha main thread par Llama load kar rahe hain
-        _llama = Llama(localPath);
-        isModelLoaded = true;
-        modelStatus = "AI Model Ready!";
-        return true;
-      }
-      modelStatus = "Aapne koi file select nahi ki.";
-      return false;
-    } catch (e) {
-      modelStatus = "Load karne me error: $e";
-      print("Pick Model Error: $e");
-      return false;
-    }
+    isModelLoaded = true;
+    modelStatus = "Cloud AI is active and ready!";
+    return true; 
   }
 
   Future<String> extractTextFromCurrentPage(String pdfFilePath, int pageNumber) async {
@@ -79,22 +53,33 @@ class LocalAIService {
     required int pageNumber, 
     required String userCommand
   }) async {
-    if (!isModelLoaded || _llama == null) {
+    if (!isModelLoaded) {
       return "ERROR_MODEL_MISSING"; 
     }
 
     String pdfText = await extractTextFromCurrentPage(pdfFilePath, pageNumber);
     if (pdfText.isEmpty) return "Is page par AI ko koi text nahi mila.";
 
-    if (pdfText.length > 500) {
-        pdfText = pdfText.substring(0, 500);
-    }
+    // English command jo PDF ki language detect karke usi mein jawab dega
+    String prompt = """
+    You are an intelligent and helpful PDF reading assistant. 
+    Read the provided text extracted from a PDF page and answer the user's question based strictly on this text.
+    
+    CRITICAL RULE: Identify the primary language of the 'PDF TEXT' provided below. You MUST generate your final answer in that exact same language. (For example, if the PDF text is in Hindi, your answer must be in Hindi. If it is in English, answer in English).
 
-    String prompt = "Text: $pdfText\nQuestion: $userCommand\nAnswer:";
+    PDF TEXT:
+    $pdfText
+
+    USER QUESTION:
+    $userCommand
+    
+    ANSWER:
+    """;
 
     try {
-      _llama!.setPrompt(prompt); 
-      return "✅ AI Engine has received the prompt! (Processing in background...)";
+      final content = [Content.text(prompt)];
+      final response = await _model.generateContent(content);
+      return response.text ?? "AI ne koi jawab nahi diya.";
     } catch (e) {
       return "AI processing error: $e";
     }

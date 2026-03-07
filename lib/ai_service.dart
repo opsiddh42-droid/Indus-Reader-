@@ -5,15 +5,11 @@ import 'package:syncfusion_flutter_pdf/pdf.dart';
 import 'package:llama_cpp_dart/llama_cpp_dart.dart';
 import 'package:file_picker/file_picker.dart';
 
-// Isolate ke liye top-level function zaroori hai
+// Isolate ke liye top-level function (Main thread block hone se rokega)
 Llama _loadLlamaModel(String path) {
-  // Model parameters to reduce memory spike (LMK fix)
-  final params = ModelParams()
-    ..nCtx = 256 // Reduced context size
-    ..nBatch = 32 // Reduced batch size
-    ..nThreads = 2; // Limit CPU threads
-    
-  return Llama(path, params); 
+  // Bina extra memory params ke load kar rahe hain taaki compile error na aaye.
+  // 85MB model aur largeHeap=true hone ki wajah se ye easily RAM me aa jayega.
+  return Llama(path); 
 }
 
 class LocalAIService {
@@ -24,11 +20,11 @@ class LocalAIService {
   Future<void> initAI() async {
     try {
       Directory tempDir = await getApplicationDocumentsDirectory();
-      String localPath = '${tempDir.path}/tinyllama.gguf'; // Default path, can be any model name
+      String localPath = '${tempDir.path}/tinyllama.gguf'; 
       File localFile = File(localPath);
 
       if (await localFile.exists()) {
-        // Run initialization in an Isolate to prevent ANR
+        // Run initialization in an Isolate to prevent UI freeze (ANR Kill)
         _llama = await compute(_loadLlamaModel, localPath);
         isModelLoaded = true;
         modelStatus = "AI Model Ready!";
@@ -53,12 +49,11 @@ class LocalAIService {
         modelStatus = "Model load ho raha hai... (Wait karein)";
         
         Directory tempDir = await getApplicationDocumentsDirectory();
-        // Hamesha ek hi naam se save karte hain aasan management ke liye
         String localPath = '${tempDir.path}/tinyllama.gguf'; 
         
         await File(pickedPath).copy(localPath);
         
-        // Run initialization in an Isolate to prevent ANR
+        // Run initialization in an Isolate to prevent UI freeze (ANR Kill)
         _llama = await compute(_loadLlamaModel, localPath);
         isModelLoaded = true;
         modelStatus = "AI Model Ready!";
@@ -98,7 +93,7 @@ class LocalAIService {
     String pdfText = await extractTextFromCurrentPage(pdfFilePath, pageNumber);
     if (pdfText.isEmpty) return "Is page par AI ko koi text nahi mila.";
 
-    // Truncate text to fit the small context window
+    // Context size limited rakhne ke liye sirf 500 characters
     if (pdfText.length > 500) {
         pdfText = pdfText.substring(0, 500);
     }

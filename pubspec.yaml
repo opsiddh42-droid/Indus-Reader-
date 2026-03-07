@@ -32,10 +32,6 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-  
-  # --- NAYA ASSETS FOLDER AI MODEL KE LIYE ---
-  assets:
-    - assets/models/
 
 # iOS ko false kar diya taaki error na aaye
 flutter_launcher_icons:

@@ -22,6 +22,7 @@ import 'ocr_screen.dart';
 import 'signature_screen.dart'; 
 import 'image_to_pdf_screen.dart'; 
 import 'bulk_modify_screen.dart'; // NAYA IMPORT BULK MODIFY KE LIYE
+import 'ai_service.dart'; // <--- NAYA IMPORT AI KE LIYE
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -46,11 +47,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
   bool _isNightMode = false;
 
+  final LocalAIService _aiService = LocalAIService(); // <--- AI SERVICE INSTANCE ADDED
+
   StreamSubscription? _intentDataStreamSubscription;
 
   @override
   void initState() {
     super.initState();
+    _aiService.initAI(); // <--- BACKGROUND ME AI LOAD KAREGA
     _loadRecentPdfs();
 
     _intentDataStreamSubscription = ReceiveSharingIntent.instance.getMediaStream().listen((List<SharedMediaFile> value) {
@@ -346,6 +350,139 @@ class _HomeScreenState extends State<HomeScreen> {
     return page < 0 ? 0 : page;
   }
 
+  // --- NAYA AI DIALOG FUNCTION ---
+  void _showAIDialog() {
+    TextEditingController commandController = TextEditingController();
+    bool isLoading = false;
+    String aiResponse = "";
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: _isNightMode ? Colors.grey.shade900 : Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            Color textColor = _isNightMode ? Colors.white : Colors.black87;
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+                left: 20, right: 20, top: 20
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(color: Colors.deepPurpleAccent.withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
+                        child: const Icon(Icons.auto_awesome, color: Colors.deepPurpleAccent),
+                      ),
+                      const SizedBox(width: 12),
+                      Text("Indus AI", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: textColor)),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Smart Suggestion Chips
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        ActionChip(
+                          avatar: const Icon(Icons.summarize, size: 16, color: Colors.white),
+                          label: const Text("Summarize", style: TextStyle(color: Colors.white)),
+                          backgroundColor: Colors.blueAccent,
+                          onPressed: () => commandController.text = "Is page ka short summary banao",
+                        ),
+                        const SizedBox(width: 8),
+                        ActionChip(
+                          avatar: const Icon(Icons.quiz, size: 16, color: Colors.white),
+                          label: const Text("Create MCQs", style: TextStyle(color: Colors.white)),
+                          backgroundColor: Colors.orangeAccent,
+                          onPressed: () => commandController.text = "Is page se 3 MCQ banao with answers",
+                        ),
+                        const SizedBox(width: 8),
+                        ActionChip(
+                          avatar: const Icon(Icons.edit_note, size: 16, color: Colors.white),
+                          label: const Text("Short Notes", style: TextStyle(color: Colors.white)),
+                          backgroundColor: Colors.teal,
+                          onPressed: () => commandController.text = "Is page ke important short notes banao",
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Input Field
+                  TextField(
+                    controller: commandController,
+                    style: TextStyle(color: textColor),
+                    decoration: InputDecoration(
+                      hintText: "Ask AI anything about this page...",
+                      hintStyle: const TextStyle(color: Colors.grey),
+                      filled: true,
+                      fillColor: _isNightMode ? Colors.black54 : Colors.grey.shade100,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                      suffixIcon: IconButton(
+                        icon: isLoading 
+                            ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.deepPurpleAccent)) 
+                            : const Icon(Icons.send, color: Colors.deepPurpleAccent),
+                        onPressed: isLoading ? null : () async {
+                          if (commandController.text.isEmpty) return;
+                          setSheetState(() { isLoading = true; aiResponse = "AI is analyzing the page..."; });
+                          
+                          int currentPage = _pdfViewerController.pageNumber;
+                          
+                          String result = await _aiService.askAIAboutPdf(
+                            pdfFilePath: _selectedPdf!.path,
+                            pageNumber: currentPage, // Syncfusion uses 1-based, pdf_text usage depends on service logic
+                            userCommand: commandController.text,
+                          );
+                          
+                          setSheetState(() {
+                            isLoading = false;
+                            aiResponse = result;
+                          });
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // AI Response Box
+                  if (aiResponse.isNotEmpty)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: _isNightMode 
+                              ? [Colors.deepPurple.shade900.withOpacity(0.5), Colors.black] 
+                              : [Colors.deepPurple.shade50, Colors.white],
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.deepPurpleAccent.withOpacity(0.3))
+                      ),
+                      child: SelectableText(
+                        aiResponse,
+                        style: TextStyle(color: textColor, fontSize: 15, height: 1.5),
+                      ),
+                    ),
+                  const SizedBox(height: 24),
+                ],
+              ),
+            );
+          }
+        );
+      }
+    );
+  }
+  // --- END AI DIALOG FUNCTION ---
+
   @override
   Widget build(BuildContext context) {
     Color appBarBgColor = _isNightMode ? Colors.black.withOpacity(0.7) : Colors.white.withOpacity(0.4);
@@ -553,6 +690,22 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
             ],
       ),
+
+      // --- NAYA AI FLOATING BUTTON YAHAN ADD HUA HAI ---
+      floatingActionButton: _selectedPdf != null && !_isDrawingMode
+          ? FloatingActionButton.extended(
+              onPressed: _showAIDialog,
+              icon: const Icon(Icons.auto_awesome, color: Colors.white),
+              label: const Text(
+                "AI Assistant", 
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 0.5)
+              ),
+              backgroundColor: Colors.deepPurpleAccent,
+              elevation: 8,
+            )
+          : null,
+      // --- END AI FLOATING BUTTON ---
+
       body: _selectedPdf != null
           ? Stack(
               children: [

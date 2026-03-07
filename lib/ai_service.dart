@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'dart:typed_data'; 
-import 'dart:ui'; // <--- YEH NAYA IMPORT ADD KIYA HAI OFFSET KE LIYE
+import 'dart:ui'; 
 import 'package:syncfusion_flutter_pdf/pdf.dart'; 
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -19,8 +19,8 @@ class LocalAIService {
         return;
       }
 
-      // Limit issue fix karne ke liye gemini-1.5-flash
-      _model = GenerativeModel(model: 'gemini-1.5-flash', apiKey: apiKey);
+      // YAHAN VIP MODEL LAGA DIYA HAI: gemini-3.1-flash-lite
+      _model = GenerativeModel(model: 'gemini-3.1-flash-lite', apiKey: apiKey);
       isModelLoaded = true;
       modelStatus = "AI Model Ready!";
     } catch (e) {
@@ -56,8 +56,6 @@ class LocalAIService {
     PdfPage originalPage = document.pages[pageIndex];
 
     singlePageDoc.pageSettings.size = originalPage.size;
-    
-    // YAHAN ERROR THI: 'const' hata diya hai aur sirf Offset(0, 0) rakha hai
     singlePageDoc.pages.add().graphics.drawPdfTemplate(originalPage.createTemplate(), Offset(0, 0));
 
     List<int> bytes = singlePageDoc.saveSync();

@@ -1,7 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart'; // NAYA IMPORT (API Key ke liye)
 import 'home_screen.dart';
 
-void main() => runApp(const IndusReaderApp());
+// main() function ko 'async' kar diya hai
+void main() async {
+  // Flutter bindings ko initialize karna zaroori hai async ke liye
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // App start hone se pehle .env file se API key load kar lega
+  await dotenv.load(fileName: ".env"); 
+  
+  runApp(const IndusReaderApp());
+}
 
 class IndusReaderApp extends StatelessWidget {
   const IndusReaderApp({super.key});

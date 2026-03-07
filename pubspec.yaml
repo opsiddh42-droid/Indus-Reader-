@@ -16,11 +16,15 @@ dependencies:
   shared_preferences: any
   path_provider: any
   google_mlkit_text_recognition: any
-  # NAYA: Document Scanner ke liye library add ki hai
+  # Document Scanner ke liye library
   google_mlkit_document_scanner: any
   receive_sharing_intent: ^1.6.2
+  
+  # --- NAYE AI DEPENDENCIES YAHAN HAIN ---
+  pdf_text: any
+  llama_cpp_dart: any
 
-# NAYA: App icon generate karne ke liye library
+# App icon generate karne ke liye library
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -28,8 +32,12 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  
+  # --- NAYA ASSETS FOLDER AI MODEL KE LIYE ---
+  assets:
+    - assets/models/
 
-# YAHAN CHANGE KIYA HAI: iOS ko false kar diya taaki error na aaye
+# iOS ko false kar diya taaki error na aaye
 flutter_launcher_icons:
   android: "ic_launcher"
   ios: false

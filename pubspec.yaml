@@ -20,9 +20,12 @@ dependencies:
   google_mlkit_document_scanner: any
   receive_sharing_intent: ^1.6.2
   
-  # --- NAYE CLOUD AI DEPENDENCIES YAHAN HAIN ---
+  # --- CLOUD AI & SECURITY DEPENDENCIES ---
   google_generative_ai: ^0.4.6
   flutter_dotenv: ^5.1.0
+  
+  # --- NAYA MARKDOWN PACKAGE (Scroll aur Bold Formatting ke liye) ---
+  flutter_markdown: any
 
 # App icon generate karne ke liye library
 dev_dependencies:
@@ -32,7 +35,7 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-  # NAYA: .env file ko app mein include karne ke liye
+  # .env file ko app mein include karne ke liye
   assets:
     - .env
 

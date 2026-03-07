@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart'; // <--- CAPITAL 'I' KO SMALL 'i' KAR DIYA HAI
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
@@ -417,7 +417,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 16),
                   
-                  // Input Field
+                  // Input Field (YAHAN NAYA LOGIC ADD HUA HAI)
                   TextField(
                     controller: commandController,
                     style: TextStyle(color: textColor),
@@ -439,14 +439,36 @@ class _HomeScreenState extends State<HomeScreen> {
                           
                           String result = await _aiService.askAIAboutPdf(
                             pdfFilePath: _selectedPdf!.path,
-                            pageNumber: currentPage, // Syncfusion uses 1-based, pdf_text usage depends on service logic
+                            pageNumber: currentPage, 
                             userCommand: commandController.text,
                           );
                           
-                          setSheetState(() {
-                            isLoading = false;
-                            aiResponse = result;
-                          });
+                          // --- NAYA LOGIC: FILE PICKER KE LIYE ---
+                          if (result == "ERROR_MODEL_MISSING") {
+                            setSheetState(() { 
+                              aiResponse = "AI Model nahi mila! Please apni downloaded .gguf file select karein..."; 
+                            });
+                            
+                            bool success = await _aiService.pickAndLoadModel();
+                            
+                            if (success) {
+                              setSheetState(() {
+                                isLoading = false;
+                                aiResponse = "✅ Model successfully load ho gaya hai! Ab aap send dabakar sawaal pooch sakte hain.";
+                              });
+                            } else {
+                              setSheetState(() {
+                                isLoading = false;
+                                aiResponse = "❌ Model load fail ho gaya: ${_aiService.modelStatus}";
+                              });
+                            }
+                          } else {
+                            setSheetState(() {
+                              isLoading = false;
+                              aiResponse = result;
+                            });
+                          }
+                          // --- END NAYA LOGIC ---
                         },
                       ),
                     ),

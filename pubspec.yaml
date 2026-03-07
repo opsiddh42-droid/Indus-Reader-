@@ -22,7 +22,7 @@ dependencies:
   
   # --- NAYE AI DEPENDENCIES YAHAN HAIN ---
   # pdf_text hata diya gaya hai error fix karne ke liye
-  llama_cpp_dart: any
+  llama_cpp_dart: 0.1.1
 
 # App icon generate karne ke liye library
 dev_dependencies:

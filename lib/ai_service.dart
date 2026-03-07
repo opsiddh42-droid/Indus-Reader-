@@ -1,5 +1,6 @@
 import 'dart:io';
-import 'dart:typed_data'; // <--- NAYA IMPORT (Bytes ke liye)
+import 'dart:typed_data'; 
+import 'dart:ui'; // <--- YEH NAYA IMPORT ADD KIYA HAI OFFSET KE LIYE
 import 'package:syncfusion_flutter_pdf/pdf.dart'; 
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -18,7 +19,7 @@ class LocalAIService {
         return;
       }
 
-      // YAHAN MODEL BADAL DIYA HAI LIMIT ISSUE FIX KARNE KE LIYE
+      // Limit issue fix karne ke liye gemini-1.5-flash
       _model = GenerativeModel(model: 'gemini-1.5-flash', apiKey: apiKey);
       isModelLoaded = true;
       modelStatus = "AI Model Ready!";
@@ -34,7 +35,6 @@ class LocalAIService {
     return true; 
   }
 
-  // Normal PDF se text nikalne ke liye
   Future<String> extractTextFromCurrentPage(String pdfFilePath, int pageNumber) async {
     try {
       PdfDocument document = PdfDocument(inputBytes: File(pdfFilePath).readAsBytesSync());
@@ -48,7 +48,6 @@ class LocalAIService {
     }
   }
 
-  // NAYA FUNCTION: Agar page Scanned Image hai, toh us ek page ki alag file banakar AI ko dene ke liye
   Future<Uint8List> extractPageAsPdfBytes(String pdfFilePath, int pageNumber) async {
     PdfDocument document = PdfDocument(inputBytes: File(pdfFilePath).readAsBytesSync());
     PdfDocument singlePageDoc = PdfDocument();
@@ -56,9 +55,10 @@ class LocalAIService {
     int pageIndex = (pageNumber - 1) < 0 ? 0 : pageNumber - 1;
     PdfPage originalPage = document.pages[pageIndex];
 
-    // Original page ka size copy karke naya page banaya aur us par photo (template) draw kar di
     singlePageDoc.pageSettings.size = originalPage.size;
-    singlePageDoc.pages.add().graphics.drawPdfTemplate(originalPage.createTemplate(), const Offset(0, 0));
+    
+    // YAHAN ERROR THI: 'const' hata diya hai aur sirf Offset(0, 0) rakha hai
+    singlePageDoc.pages.add().graphics.drawPdfTemplate(originalPage.createTemplate(), Offset(0, 0));
 
     List<int> bytes = singlePageDoc.saveSync();
     singlePageDoc.dispose();
@@ -77,10 +77,9 @@ class LocalAIService {
     }
 
     try {
-      // Step 1: Pehle check karo ki normal text hai kya
       String pdfText = await extractTextFromCurrentPage(pdfFilePath, pageNumber);
 
-      // Agar text mil gaya (Normal digital PDF hai)
+      // Agar digital PDF hai (Text easily mil gaya)
       if (pdfText.trim().length > 20) {
         String prompt = """
         You are an intelligent and helpful PDF reading assistant. 
@@ -99,12 +98,10 @@ class LocalAIService {
         return response.text ?? "AI ne koi jawab nahi diya.";
       } 
       
-      // Step 2: Agar text NAHI mila (Yaani Scanned Photo / Image PDF hai)
+      // Agar scanned photo / image PDF hai (Vision OCR trigger hoga)
       else {
-        // Us 1 page ko mini-pdf bytes mein convert kar liya
         Uint8List pageBytes = await extractPageAsPdfBytes(pdfFilePath, pageNumber);
 
-        // Prompt with DataPart (Gemini 1.5 natively image OCR karta hai!)
         final prompt = TextPart("""
         You are an intelligent and helpful document reading assistant. 
         Attached is a 1-page scanned PDF document (image-based). Please extract the visual text/information from it using OCR and answer the user's question based strictly on this document.
@@ -117,7 +114,6 @@ class LocalAIService {
 
         final pdfPart = DataPart('application/pdf', pageBytes);
 
-        // Gemini ko command aur PDF file dono bhej di
         final response = await _model.generateContent([
           Content.multi([prompt, pdfPart])
         ]);

@@ -18,8 +18,8 @@ class LocalAIService {
         return;
       }
 
-      // Naya aur fast Gemini 1.5 Flash model
-      _model = GenerativeModel(model: 'gemini-1.5-flash', apiKey: apiKey);
+      // YAHAN NAYA FAST MODEL ADD KIYA HAI: gemini-2.5-flash
+      _model = GenerativeModel(model: 'gemini-2.5-flash', apiKey: apiKey);
       isModelLoaded = true;
       modelStatus = "AI Model Ready!";
     } catch (e) {

@@ -31,7 +31,24 @@ jobs:
       - name: Install Dependencies
         run: flutter pub get
 
-      # Icon ko zabardasti APK banne se pehle generate karna
+      # --- NAYA STEP: C++ Engine (libllama.so) Compile karke APK me pack karna ---
+      - name: Build C++ Llama Engine for Android
+        run: |
+          echo "Llama.cpp download aur Android ke liye compile ho raha hai..."
+          git clone https://github.com/ggerganov/llama.cpp.git
+          cd llama.cpp
+          
+          # GitHub Actions ke built-in Android NDK se C++ code compile karna
+          cmake -B build -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-24 -DBUILD_SHARED_LIBS=ON
+          cmake --build build --config Release
+          
+          # Flutter ke Android folder me "jniLibs" (C++ libraries ka folder) banana
+          mkdir -p ../android/app/src/main/jniLibs/arm64-v8a
+          
+          # Compile ki hui saari .so files ko APK me pack hone ke liye daalna
+          find build -name "*.so" -exec cp {} ../android/app/src/main/jniLibs/arm64-v8a/ \;
+          echo "C++ Engine successfully APK me daal diya gaya hai!"
+
       - name: Generate App Icon
         run: flutter pub run flutter_launcher_icons
 
@@ -42,7 +59,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v1.0.${{ github.run_number }}
-          name: Indus Reader APK (Direct Download)
+          name: Indus Reader APK (Offline AI)
           files: build/app/outputs/flutter-apk/app-debug.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,16 +1,8 @@
 import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart'; 
 import 'package:llama_cpp_dart/llama_cpp_dart.dart';
 import 'package:file_picker/file_picker.dart';
-
-// Isolate ke liye top-level function (Main thread block hone se rokega)
-Llama _loadLlamaModel(String path) {
-  // Bina extra memory params ke load kar rahe hain taaki compile error na aaye.
-  // 85MB model aur largeHeap=true hone ki wajah se ye easily RAM me aa jayega.
-  return Llama(path); 
-}
 
 class LocalAIService {
   Llama? _llama; 
@@ -24,8 +16,9 @@ class LocalAIService {
       File localFile = File(localPath);
 
       if (await localFile.exists()) {
-        // Run initialization in an Isolate to prevent UI freeze (ANR Kill)
-        _llama = await compute(_loadLlamaModel, localPath);
+        // Isolate (compute) hata diya hai taaki C++ Pointer Crash na ho.
+        // App 2-3 second freeze hoga jab model load hoga, ghabrana mat.
+        _llama = Llama(localPath);
         isModelLoaded = true;
         modelStatus = "AI Model Ready!";
       } else {
@@ -53,8 +46,8 @@ class LocalAIService {
         
         await File(pickedPath).copy(localPath);
         
-        // Run initialization in an Isolate to prevent UI freeze (ANR Kill)
-        _llama = await compute(_loadLlamaModel, localPath);
+        // Seedha main thread par Llama load kar rahe hain
+        _llama = Llama(localPath);
         isModelLoaded = true;
         modelStatus = "AI Model Ready!";
         return true;
@@ -93,7 +86,6 @@ class LocalAIService {
     String pdfText = await extractTextFromCurrentPage(pdfFilePath, pageNumber);
     if (pdfText.isEmpty) return "Is page par AI ko koi text nahi mila.";
 
-    // Context size limited rakhne ke liye sirf 500 characters
     if (pdfText.length > 500) {
         pdfText = pdfText.substring(0, 500);
     }

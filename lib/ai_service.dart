@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:path_provider/path_provider.dart';
-import 'package:pdf_text/pdf_text.dart';
+import 'package:syncfusion_flutter_pdf/pdf.dart'; // <-- NAYA IMPORT (Syncfusion)
 import 'package:llama_cpp_dart/llama_cpp_dart.dart';
 
 class LocalAIService {
@@ -13,21 +13,17 @@ class LocalAIService {
     try {
       print("Model copy ho raha hai... (Pehli baar thoda time lag sakta hai)");
       
-      // 1. Android ki temporary directory ka path lena
       Directory tempDir = await getApplicationDocumentsDirectory();
       String localPath = '${tempDir.path}/tinyllama.gguf';
       File localFile = File(localPath);
 
-      // 2. Check karna ki file pehle se copy ho chuki hai ya nahi
       if (!await localFile.exists()) {
-        // Agar nahi hai, toh assets se copy karein
         ByteData data = await rootBundle.load('assets/models/tinyllama.gguf');
         List<int> bytes = data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
         await localFile.writeAsBytes(bytes);
         print("Model phone storage me copy ho gaya!");
       }
 
-      // 3. Local path se AI model ko load karna
       _aiModel = LlamaContext(modelParams: ModelParams(modelPath: localPath));
       isModelLoaded = true;
       print("AI Model successfully load ho gaya hai aur ready hai!");
@@ -37,19 +33,30 @@ class LocalAIService {
     }
   }
 
-  // PDF read karne ka logic... (Ye pehle jaisa hi rahega)
+  // PDF read karne ka logic Syncfusion ke dwara
   Future<String> extractTextFromCurrentPage(String pdfFilePath, int pageNumber) async {
     try {
-      PDFDoc doc = await PDFDoc.fromPath(pdfFilePath);
-      PDFPage page = doc.pageAt(pageNumber);
-      String pageText = await page.text;
+      // PDF document open karein
+      PdfDocument document = PdfDocument(inputBytes: File(pdfFilePath).readAsBytesSync());
+      PdfTextExtractor extractor = PdfTextExtractor(document);
+      
+      // Syncfusion me page index 0 se shuru hota hai (jaise page 1 ka index 0)
+      int pageIndex = pageNumber - 1;
+      if (pageIndex < 0) pageIndex = 0;
+
+      // Sirf current page ka text nikalna
+      String pageText = extractor.extractText(startPageIndex: pageIndex, endPageIndex: pageIndex);
+      
+      // Memory bachane ke liye document close karein
+      document.dispose();
+      
       return pageText;
     } catch (e) {
       return "Error: PDF read nahi ho payi.";
     }
   }
 
-  // AI se Q&A karne ka logic...
+  // AI se Q&A karne ka logic
   Future<String> askAIAboutPdf({
     required String pdfFilePath, 
     required int pageNumber, 

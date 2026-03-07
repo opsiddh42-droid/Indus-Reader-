@@ -1,10 +1,11 @@
-import 'package:flutter/material.dart'; // <--- CAPITAL 'I' KO SMALL 'i' KAR DIYA HAI
+import 'package:flutter/material.dart'; 
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:google_mlkit_document_scanner/google_mlkit_document_scanner.dart'; 
 import 'package:shared_preferences/shared_preferences.dart'; 
 import 'package:receive_sharing_intent/receive_sharing_intent.dart'; 
+import 'package:flutter_markdown/flutter_markdown.dart'; // <--- NAYA IMPORT MARKDOWN AUR FORMATTING KE LIYE
 import 'dart:async'; 
 import 'dart:io';
 import 'dart:ui'; 
@@ -21,8 +22,8 @@ import 'password_screen.dart';
 import 'ocr_screen.dart'; 
 import 'signature_screen.dart'; 
 import 'image_to_pdf_screen.dart'; 
-import 'bulk_modify_screen.dart'; // NAYA IMPORT BULK MODIFY KE LIYE
-import 'ai_service.dart'; // <--- NAYA IMPORT AI KE LIYE
+import 'bulk_modify_screen.dart'; 
+import 'ai_service.dart'; 
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -47,14 +48,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
   bool _isNightMode = false;
 
-  final LocalAIService _aiService = LocalAIService(); // <--- AI SERVICE INSTANCE ADDED
+  final LocalAIService _aiService = LocalAIService(); 
 
   StreamSubscription? _intentDataStreamSubscription;
 
   @override
   void initState() {
     super.initState();
-    _aiService.initAI(); // <--- BACKGROUND ME AI LOAD KAREGA
+    _aiService.initAI(); 
     _loadRecentPdfs();
 
     _intentDataStreamSubscription = ReceiveSharingIntent.instance.getMediaStream().listen((List<SharedMediaFile> value) {
@@ -350,7 +351,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return page < 0 ? 0 : page;
   }
 
-  // --- NAYA AI DIALOG FUNCTION ---
   void _showAIDialog() {
     TextEditingController commandController = TextEditingController();
     bool isLoading = false;
@@ -387,7 +387,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 16),
                   
-                  // Smart Suggestion Chips
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
@@ -417,7 +416,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 16),
                   
-                  // Input Field (YAHAN NAYA LOGIC ADD HUA HAI)
                   TextField(
                     controller: commandController,
                     style: TextStyle(color: textColor),
@@ -443,10 +441,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             userCommand: commandController.text,
                           );
                           
-                          // --- NAYA LOGIC: FILE PICKER KE LIYE ---
                           if (result == "ERROR_MODEL_MISSING") {
                             setSheetState(() { 
-                              aiResponse = "AI Model nahi mila! Please apni downloaded .gguf file select karein..."; 
+                              aiResponse = "AI Model nahi mila! Please apni downloaded file select karein..."; 
                             });
                             
                             bool success = await _aiService.pickAndLoadModel();
@@ -468,17 +465,20 @@ class _HomeScreenState extends State<HomeScreen> {
                               aiResponse = result;
                             });
                           }
-                          // --- END NAYA LOGIC ---
                         },
                       ),
                     ),
                   ),
                   const SizedBox(height: 16),
                   
-                  // AI Response Box
+                  // --- YAHAN MAIN CHANGE KIYA HAI SCROLL AUR MARKDOWN KE LIYE ---
                   if (aiResponse.isNotEmpty)
                     Container(
                       width: double.infinity,
+                      // Yeh line response box ko ek maximum height deti hai taaki overflow na ho aur scroll ho sake
+                      constraints: BoxConstraints(
+                        maxHeight: MediaQuery.of(context).size.height * 0.45, 
+                      ),
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
@@ -489,11 +489,24 @@ class _HomeScreenState extends State<HomeScreen> {
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(color: Colors.deepPurpleAccent.withOpacity(0.3))
                       ),
-                      child: SelectableText(
-                        aiResponse,
-                        style: TextStyle(color: textColor, fontSize: 15, height: 1.5),
+                      child: Scrollbar(
+                        thumbVisibility: true,
+                        child: SingleChildScrollView(
+                          physics: const BouncingScrollPhysics(),
+                          child: MarkdownBody(
+                            data: aiResponse,
+                            selectable: true, // User copy bhi kar payega
+                            styleSheet: MarkdownStyleSheet(
+                              p: TextStyle(color: textColor, fontSize: 15, height: 1.5),
+                              strong: TextStyle(color: textColor, fontWeight: FontWeight.bold),
+                              listBullet: const TextStyle(color: Colors.deepPurpleAccent, fontSize: 16),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
+                  // --- END SCROLL CHANGE ---
+                  
                   const SizedBox(height: 24),
                 ],
               ),
@@ -503,7 +516,6 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     );
   }
-  // --- END AI DIALOG FUNCTION ---
 
   @override
   Widget build(BuildContext context) {
@@ -556,7 +568,6 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Text('PDF TOOLS', style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold)),
             ),
             
-            // --- NAYA VIP BULK MODIFY BUTTON ---
             ListTile(
               tileColor: Colors.amber.withOpacity(0.2), 
               leading: const Icon(Icons.auto_awesome, color: Colors.amber),
@@ -713,7 +724,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
       ),
 
-      // --- NAYA AI FLOATING BUTTON YAHAN ADD HUA HAI ---
       floatingActionButton: _selectedPdf != null && !_isDrawingMode
           ? FloatingActionButton.extended(
               onPressed: _showAIDialog,
@@ -726,7 +736,6 @@ class _HomeScreenState extends State<HomeScreen> {
               elevation: 8,
             )
           : null,
-      // --- END AI FLOATING BUTTON ---
 
       body: _selectedPdf != null
           ? Stack(

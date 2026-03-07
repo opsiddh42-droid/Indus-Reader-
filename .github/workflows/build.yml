@@ -31,15 +31,15 @@ jobs:
       - name: Install Dependencies
         run: flutter pub get
 
-      # --- NAYA STEP: C++ Engine (libllama.so) Compile karke APK me pack karna ---
+      # --- UPDATE: Tests aur Examples ko band kar diya gaya hai ---
       - name: Build C++ Llama Engine for Android
         run: |
           echo "Llama.cpp download aur Android ke liye compile ho raha hai..."
           git clone https://github.com/ggerganov/llama.cpp.git
           cd llama.cpp
           
-          # GitHub Actions ke built-in Android NDK se C++ code compile karna
-          cmake -B build -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-24 -DBUILD_SHARED_LIBS=ON
+          # Yahan maine TESTS, EXAMPLES aur SERVER ko OFF kar diya hai
+          cmake -B build -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-24 -DBUILD_SHARED_LIBS=ON -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_BUILD_SERVER=OFF
           cmake --build build --config Release
           
           # Flutter ke Android folder me "jniLibs" (C++ libraries ka folder) banana

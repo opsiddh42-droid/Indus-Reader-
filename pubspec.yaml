@@ -21,7 +21,7 @@ dependencies:
   receive_sharing_intent: ^1.6.2
   
   # --- NAYE AI DEPENDENCIES YAHAN HAIN ---
-  pdf_text: any
+  # pdf_text hata diya gaya hai error fix karne ke liye
   llama_cpp_dart: any
 
 # App icon generate karne ke liye library

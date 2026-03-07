@@ -1,7 +1,8 @@
 import 'dart:io';
+import 'dart:typed_data'; // <-- NAYA IMPORT YAHAN ADD KIYA HAI
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:path_provider/path_provider.dart';
-import 'package:syncfusion_flutter_pdf/pdf.dart'; // <-- NAYA IMPORT (Syncfusion)
+import 'package:syncfusion_flutter_pdf/pdf.dart'; 
 import 'package:llama_cpp_dart/llama_cpp_dart.dart';
 
 class LocalAIService {

@@ -23,6 +23,8 @@ dependencies:
   # --- CLOUD AI & SECURITY DEPENDENCIES ---
   google_generative_ai: ^0.4.6
   flutter_dotenv: ^5.1.0
+  flutter_tts: ^4.0.2
+
   
   # --- NAYA MARKDOWN PACKAGE (Scroll aur Bold Formatting ke liye) ---
   flutter_markdown: any

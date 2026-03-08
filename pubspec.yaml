@@ -40,6 +40,12 @@ flutter:
   # .env file ko app mein include karne ke liye
   assets:
     - .env
+flutter:
+  uses-material-design: true
+  
+  # Yahan naya assets wala section add karna hai
+  assets:
+    - assets/fonts/hindi_font.ttf
 
 # iOS ko false kar diya taaki error na aaye
 flutter_launcher_icons:

@@ -1,9 +1,11 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // <--- NAYA IMPORT FONT LOAD KARNE KE LIYE
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
-import 'flashcard_screen.dart'; // <--- NAYI FILE IMPORT KI HAI
+import 'package:flutter_markdown/flutter_markdown.dart';
+import 'flashcard_screen.dart';
 
 class MyNotesScreen extends StatefulWidget {
   const MyNotesScreen({super.key});
@@ -46,7 +48,7 @@ class _MyNotesScreenState extends State<MyNotesScreen> {
   Future<void> _exportToPdf(String subjectName, List<String> notes) async {
     try {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('⏳ Generating PDF... Please wait.'), backgroundColor: Colors.blueAccent),
+        const SnackBar(content: Text('⏳ Generating PDF... Please wait.'), backgroundColor: Colors.deepPurpleAccent),
       );
 
       PdfDocument document = PdfDocument();
@@ -57,10 +59,22 @@ class _MyNotesScreenState extends State<MyNotesScreen> {
       fullText += "=========================================\n\n";
       
       for (String note in notes) {
-        fullText += "$note\n\n";
+        String cleanNote = note.replaceAll('**', '').replaceAll('* ', '• ');
+        fullText += "$cleanNote\n\n";
       }
 
-      PdfStandardFont font = PdfStandardFont(PdfFontFamily.helvetica, 12);
+      // --- HINDI FONT LOAD KARNE KA NAYA LOGIC ---
+      PdfFont font;
+      try {
+        // Hum assets folder se hindi font utha rahe hain
+        final ByteData fontData = await rootBundle.load('assets/fonts/hindi_font.ttf');
+        font = PdfTrueTypeFont(fontData.buffer.asUint8List(), 12);
+      } catch (e) {
+        debugPrint("Font Error: $e");
+        // Agar font nahi mila toh fallback (is case mein error aa sakta hai agar text Hindi hua)
+        font = PdfStandardFont(PdfFontFamily.helvetica, 12);
+      }
+      
       PdfTextElement textElement = PdfTextElement(text: fullText, font: font);
       
       PdfPage page = document.pages.add();
@@ -80,8 +94,10 @@ class _MyNotesScreenState extends State<MyNotesScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('✅ PDF Saved Successfully: SmartNotes_$cleanName.pdf'),
+          content: Text('✅ PDF Saved: SmartNotes_$cleanName.pdf'),
           backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           duration: const Duration(seconds: 4),
         ),
       );
@@ -98,105 +114,180 @@ class _MyNotesScreenState extends State<MyNotesScreen> {
     await prefs.remove(key);
     _loadNotes(); 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('🗑️ Notes deleted successfully!')),
+      SnackBar(
+        content: const Text('🗑️ Notes deleted successfully!'),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF4F6F9), 
       appBar: AppBar(
-        title: const Text('📝 My Smart Notes', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('My Smart Notes', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22, letterSpacing: 0.5)),
         backgroundColor: Colors.deepPurpleAccent,
         foregroundColor: Colors.white,
+        elevation: 0,
+        centerTitle: true,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
+        ),
       ),
-      backgroundColor: Colors.grey.shade100,
       body: _isLoading 
-        ? const Center(child: CircularProgressIndicator())
+        ? const Center(child: CircularProgressIndicator(color: Colors.deepPurpleAccent))
         : _allNotes.isEmpty
-          ? const Center(
-              child: Text(
-                "Koi notes save nahi kiye hain abhi tak.\nPadhte time 'Save Note' par click karein!",
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16, color: Colors.grey),
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.library_books, size: 80, color: Colors.grey.shade400),
+                  const SizedBox(height: 16),
+                  const Text(
+                    "No notes saved yet!",
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black54),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "Read a PDF and click 'Save Note'\nto see the magic here.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 15, color: Colors.grey.shade600, height: 1.5),
+                  ),
+                ],
               ),
             )
           : ListView.builder(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
               itemCount: _allNotes.length,
               itemBuilder: (context, index) {
                 String pdfName = _allNotes.keys.elementAt(index);
                 List<String> notes = _allNotes[pdfName]!;
                 
-                return Card(
-                  elevation: 3,
-                  margin: const EdgeInsets.only(bottom: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  child: ExpansionTile(
-                    leading: const CircleAvatar(
-                      backgroundColor: Colors.deepPurpleAccent,
-                      child: Icon(Icons.library_books, color: Colors.white),
-                    ),
-                    title: Text(
-                      pdfName, 
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                    ),
-                    subtitle: Text("${notes.length} points saved", style: const TextStyle(color: Colors.green)),
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        color: Colors.deepPurple.shade50,
-                        width: double.infinity,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              notes.join("\n\n"),
-                              style: const TextStyle(fontSize: 14, color: Colors.black87),
-                            ),
-                            const SizedBox(height: 16),
-                            // --- YAHAN FLASHCARD BUTTON ADD KIYA HAI ---
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              alignment: WrapAlignment.end,
-                              children: [
-                                OutlinedButton.icon(
-                                  onPressed: () => _deleteNotes('notes_$pdfName'),
-                                  icon: const Icon(Icons.delete, color: Colors.red, size: 18),
-                                  label: const Text("Delete", style: TextStyle(color: Colors.red)),
-                                ),
-                                ElevatedButton.icon(
-                                  onPressed: () => _exportToPdf(pdfName, notes),
-                                  icon: const Icon(Icons.picture_as_pdf, size: 18),
-                                  label: const Text("Export to PDF"),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.deepPurpleAccent,
-                                    foregroundColor: Colors.white,
-                                  ),
-                                ),
-                                ElevatedButton.icon(
-                                  onPressed: () {
-                                    Navigator.push(
-                                      context, 
-                                      MaterialPageRoute(
-                                        builder: (context) => FlashcardScreen(subjectName: pdfName, notes: notes)
-                                      )
-                                    );
-                                  },
-                                  icon: const Icon(Icons.style, size: 18),
-                                  label: const Text("Flashcards"),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.orangeAccent,
-                                    foregroundColor: Colors.white,
-                                  ),
-                                ),
-                              ],
-                            )
-                          ],
-                        ),
-                      )
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.deepPurpleAccent.withOpacity(0.08),
+                        blurRadius: 15,
+                        offset: const Offset(0, 5),
+                      ),
                     ],
+                  ),
+                  child: Theme(
+                    data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                    child: ExpansionTile(
+                      tilePadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                      leading: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Colors.deepPurpleAccent, Colors.purpleAccent],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Icon(Icons.description, color: Colors.white, size: 24),
+                      ),
+                      title: Text(
+                        pdfName.replaceAll('.pdf', ''), 
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17, color: Colors.black87),
+                      ),
+                      subtitle: Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          "${notes.length} Important Points", 
+                          style: const TextStyle(color: Colors.green, fontWeight: FontWeight.w600, fontSize: 13),
+                        ),
+                      ),
+                      iconColor: Colors.deepPurpleAccent,
+                      children: [
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: Colors.deepPurple.shade50.withOpacity(0.5),
+                            borderRadius: const BorderRadius.only(
+                              bottomLeft: Radius.circular(20), 
+                              bottomRight: Radius.circular(20)
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              MarkdownBody(
+                                data: notes.join("\n\n---\n\n"), 
+                                selectable: true,
+                                styleSheet: MarkdownStyleSheet(
+                                  p: const TextStyle(fontSize: 15, height: 1.6, color: Colors.black87),
+                                  strong: const TextStyle(fontWeight: FontWeight.w800, color: Colors.deepPurple), 
+                                  listBullet: const TextStyle(color: Colors.deepPurpleAccent, fontSize: 18),
+                                  horizontalRuleDecoration: BoxDecoration(
+                                    border: Border(top: BorderSide(width: 1, color: Colors.grey.shade300)),
+                                  ),
+                                ),
+                              ),
+                              
+                              const SizedBox(height: 24),
+                              
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  IconButton(
+                                    onPressed: () => _deleteNotes('notes_$pdfName'),
+                                    icon: const Icon(Icons.delete_outline),
+                                    color: Colors.redAccent,
+                                    tooltip: "Delete Notes",
+                                  ),
+                                  
+                                  Row(
+                                    children: [
+                                      ElevatedButton.icon(
+                                        onPressed: () {
+                                          Navigator.push(
+                                            context, 
+                                            MaterialPageRoute(
+                                              builder: (context) => FlashcardScreen(subjectName: pdfName, notes: notes)
+                                            )
+                                          );
+                                        },
+                                        icon: const Icon(Icons.style, size: 18),
+                                        label: const Text("Flashcards", style: TextStyle(fontWeight: FontWeight.bold)),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.orangeAccent,
+                                          foregroundColor: Colors.white,
+                                          elevation: 2,
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      ElevatedButton.icon(
+                                        onPressed: () => _exportToPdf(pdfName, notes),
+                                        icon: const Icon(Icons.picture_as_pdf, size: 18),
+                                        label: const Text("Export", style: TextStyle(fontWeight: FontWeight.bold)),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.deepPurpleAccent,
+                                          foregroundColor: Colors.white,
+                                          elevation: 2,
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              )
+                            ],
+                          ),
+                        )
+                      ],
+                    ),
                   ),
                 );
               },

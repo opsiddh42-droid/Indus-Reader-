@@ -15,21 +15,27 @@ subprojects {
     val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
     project.layout.buildDirectory.value(newSubprojectBuildDir)
 
-    // --- FINAL MASTERSTROKE: afterEvaluate ko evaluationDependsOn se pehle lagaya hai ---
-    // Isse dono Java aur Kotlin 100% force hoke 17 par aa jayenge bina kisi clash ke!
-    afterEvaluate {
-        tasks.withType<JavaCompile>().configureEach {
-            sourceCompatibility = "17"
-            targetCompatibility = "17"
-        }
-    }
-
+    // --- SURGICAL STRIKE 2.0 ---
+    // Jis plugin ki jo aukat (Java version) hai, usko wahi Kotlin target milega!
     tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
-        compilerOptions.jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        when (project.name) {
+            "flutter_tts" -> {
+                compilerOptions.jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+            }
+            "file_picker" -> {
+                compilerOptions.jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+            }
+            "receive_sharing_intent" -> {
+                compilerOptions.jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_1_8)
+            }
+            else -> {
+                // Aapke main app aur device_info_plus ke liye modern Java 17
+                compilerOptions.jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+            }
+        }
     }
 }
 
-// Yeh hamesha afterEvaluate ke BAAD aana chahiye, taaki error na aaye
 subprojects {
     project.evaluationDependsOn(":app")
 }

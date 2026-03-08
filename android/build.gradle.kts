@@ -24,7 +24,7 @@ tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }
 
-// --- MASTER FIX: afterEvaluate sabse last me run hoga aur kisi ko manmani nahi karne dega ---
+// --- MASTER FIX (Updated for New Kotlin Compiler) ---
 subprojects {
     afterEvaluate {
         tasks.withType<JavaCompile>().configureEach {
@@ -32,7 +32,8 @@ subprojects {
             targetCompatibility = "17"
         }
         tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
-            kotlinOptions.jvmTarget = "17"
+            // Naya Kotlin DSL syntax yahan laga diya hai
+            compilerOptions.jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
         }
     }
 }

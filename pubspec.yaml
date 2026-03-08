@@ -25,7 +25,6 @@ dependencies:
   flutter_dotenv: ^5.1.0
   flutter_tts: ^4.0.2
 
-  
   # --- NAYA MARKDOWN PACKAGE (Scroll aur Bold Formatting ke liye) ---
   flutter_markdown: any
 
@@ -35,16 +34,11 @@ dev_dependencies:
     sdk: flutter
   flutter_launcher_icons: ^0.13.1
 
+# Ek hi 'flutter' section jisme dono (env aur font) assets hain
 flutter:
   uses-material-design: true
-  # .env file ko app mein include karne ke liye
   assets:
     - .env
-flutter:
-  uses-material-design: true
-  
-  # Yahan naya assets wala section add karna hai
-  assets:
     - assets/fonts/hindi_font.ttf
 
 # iOS ko false kar diya taaki error na aaye

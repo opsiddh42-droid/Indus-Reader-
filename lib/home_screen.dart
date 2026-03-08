@@ -24,6 +24,7 @@ import 'signature_screen.dart';
 import 'image_to_pdf_screen.dart'; 
 import 'bulk_modify_screen.dart'; 
 import 'ai_service.dart'; 
+import 'my_notes_screen.dart'; // <--- Yeh line add kijiye
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -552,6 +553,17 @@ class _HomeScreenState extends State<HomeScreen> {
               },
             ),
             const Divider(),
+                        ListTile(
+              leading: const Icon(Icons.menu_book, color: Colors.green),
+              title: const Text('My Smart Notes', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+              onTap: () async { 
+                Navigator.pop(context); 
+                await Navigator.push(context, MaterialPageRoute(builder: (context) => const MyNotesScreen())); 
+                _loadRecentPdfs(); // Taaki agar nayi PDF bani ho toh Recent me dikh jaye
+              },
+            ),
+            const Divider(), // Iske baad "PDF TOOLS" shuru ho jata hai
+
             ListTile(
               leading: const Icon(Icons.folder_open, color: Colors.black87),
               title: const Text('Open File'),

@@ -19,8 +19,8 @@ class LocalAIService {
         return;
       }
 
-      // YAHAN VIP MODEL LAGA DIYA HAI: gemini-3.1-flash-lite
-      _model = GenerativeModel(model: 'gemini-3.1-flash-lite', apiKey: apiKey);
+      // YAHAN EXACT MODEL NAME UPDATE KAR DIYA HAI: gemini-3.1-flash-lite-preview
+      _model = GenerativeModel(model: 'gemini-3.1-flash-lite-preview', apiKey: apiKey);
       isModelLoaded = true;
       modelStatus = "AI Model Ready!";
     } catch (e) {

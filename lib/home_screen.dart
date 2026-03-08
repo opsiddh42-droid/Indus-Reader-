@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart'; 
+import 'package:flutter/services.dart'; // <--- NAYA IMPORT COPY KE LIYE
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:google_mlkit_document_scanner/google_mlkit_document_scanner.dart'; 
 import 'package:shared_preferences/shared_preferences.dart'; 
 import 'package:receive_sharing_intent/receive_sharing_intent.dart'; 
-import 'package:flutter_markdown/flutter_markdown.dart'; // <--- NAYA IMPORT MARKDOWN AUR FORMATTING KE LIYE
+import 'package:flutter_markdown/flutter_markdown.dart'; 
+import 'package:flutter_tts/flutter_tts.dart'; // <--- NAYA IMPORT VOICE/AUDIOBOOK KE LIYE
 import 'dart:async'; 
 import 'dart:io';
 import 'dart:ui'; 
@@ -24,7 +26,7 @@ import 'signature_screen.dart';
 import 'image_to_pdf_screen.dart'; 
 import 'bulk_modify_screen.dart'; 
 import 'ai_service.dart'; 
-import 'my_notes_screen.dart'; // <--- Yeh line add kijiye
+import 'my_notes_screen.dart'; 
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -50,6 +52,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isNightMode = false;
 
   final LocalAIService _aiService = LocalAIService(); 
+  final FlutterTts _flutterTts = FlutterTts(); // <--- TTS KA ENGINE INITIALIZE KIYA
 
   StreamSubscription? _intentDataStreamSubscription;
 
@@ -77,7 +80,21 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     _intentDataStreamSubscription?.cancel();
+    _flutterTts.stop(); // <--- APP BAND HOTE HI AUDIO BHI BAND
     super.dispose();
+  }
+
+  // --- AUTO SMART NOTE SAVER ---
+  Future<void> _saveNoteForCurrentPdf(String note) async {
+    if (_selectedPdf == null) return;
+    String pdfName = _selectedPdf!.path.split('/').last; 
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String key = 'notes_$pdfName';
+    List<String> existingNotes = prefs.getStringList(key) ?? [];
+    int currentPage = _pdfViewerController.pageNumber;
+    String formattedNote = "--- Page $currentPage ---\n$note\n";
+    existingNotes.add(formattedNote);
+    await prefs.setStringList(key, existingNotes);
   }
 
   Future<void> _loadRecentPdfs() async {
@@ -356,6 +373,7 @@ class _HomeScreenState extends State<HomeScreen> {
     TextEditingController commandController = TextEditingController();
     bool isLoading = false;
     String aiResponse = "";
+    bool isSpeaking = false; // <--- AUDIO STATE
 
     showModalBottomSheet(
       context: context,
@@ -412,6 +430,14 @@ class _HomeScreenState extends State<HomeScreen> {
                           backgroundColor: Colors.teal,
                           onPressed: () => commandController.text = "Is page ke important short notes banao",
                         ),
+                        const SizedBox(width: 8),
+                        // --- NAYA VIP BUTTON: TRANSLATOR ---
+                        ActionChip(
+                          avatar: const Icon(Icons.translate, size: 16, color: Colors.white),
+                          label: const Text("Translate (Hindi)", style: TextStyle(color: Colors.white)),
+                          backgroundColor: Colors.purpleAccent,
+                          onPressed: () => commandController.text = "Is page ko completely Hindi mein translate karo",
+                        ),
                       ],
                     ),
                   ),
@@ -432,6 +458,13 @@ class _HomeScreenState extends State<HomeScreen> {
                             : const Icon(Icons.send, color: Colors.deepPurpleAccent),
                         onPressed: isLoading ? null : () async {
                           if (commandController.text.isEmpty) return;
+                          
+                          // Naya sawal poochte hi purana audio band karo
+                          if (isSpeaking) {
+                            await _flutterTts.stop();
+                            isSpeaking = false;
+                          }
+
                           setSheetState(() { isLoading = true; aiResponse = "AI is analyzing the page..."; });
                           
                           int currentPage = _pdfViewerController.pageNumber;
@@ -472,41 +505,103 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 16),
                   
-                  // --- YAHAN MAIN CHANGE KIYA HAI SCROLL AUR MARKDOWN KE LIYE ---
+                  // --- UI UPDATE: MARKDOWN AUR 3 VIP BUTTONS (LISTEN, COPY, SAVE) ---
                   if (aiResponse.isNotEmpty)
-                    Container(
-                      width: double.infinity,
-                      // Yeh line response box ko ek maximum height deti hai taaki overflow na ho aur scroll ho sake
-                      constraints: BoxConstraints(
-                        maxHeight: MediaQuery.of(context).size.height * 0.45, 
-                      ),
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: _isNightMode 
-                              ? [Colors.deepPurple.shade900.withOpacity(0.5), Colors.black] 
-                              : [Colors.deepPurple.shade50, Colors.white],
-                        ),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.deepPurpleAccent.withOpacity(0.3))
-                      ),
-                      child: Scrollbar(
-                        thumbVisibility: true,
-                        child: SingleChildScrollView(
-                          physics: const BouncingScrollPhysics(),
-                          child: MarkdownBody(
-                            data: aiResponse,
-                            selectable: true, // User copy bhi kar payega
-                            styleSheet: MarkdownStyleSheet(
-                              p: TextStyle(color: textColor, fontSize: 15, height: 1.5),
-                              strong: TextStyle(color: textColor, fontWeight: FontWeight.bold),
-                              listBullet: const TextStyle(color: Colors.deepPurpleAccent, fontSize: 16),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: double.infinity,
+                          constraints: BoxConstraints(
+                            maxHeight: MediaQuery.of(context).size.height * 0.45, 
+                          ),
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: _isNightMode 
+                                  ? [Colors.deepPurple.shade900.withOpacity(0.5), Colors.black] 
+                                  : [Colors.deepPurple.shade50, Colors.white],
+                            ),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.deepPurpleAccent.withOpacity(0.3))
+                          ),
+                          child: Scrollbar(
+                            thumbVisibility: true,
+                            child: SingleChildScrollView(
+                              physics: const BouncingScrollPhysics(),
+                              child: MarkdownBody(
+                                data: aiResponse,
+                                selectable: true, 
+                                styleSheet: MarkdownStyleSheet(
+                                  p: TextStyle(color: textColor, fontSize: 15, height: 1.5),
+                                  strong: TextStyle(color: textColor, fontWeight: FontWeight.bold),
+                                  listBullet: const TextStyle(color: Colors.deepPurpleAccent, fontSize: 16),
+                                ),
+                              ),
                             ),
                           ),
                         ),
-                      ),
+                        const SizedBox(height: 12),
+                        
+                        // --- TEENO SMART BUTTONS YAHAN HAIN ---
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          alignment: WrapAlignment.end,
+                          children: [
+                            ElevatedButton.icon(
+                              onPressed: () async {
+                                if (isSpeaking) {
+                                  await _flutterTts.stop();
+                                  setSheetState(() => isSpeaking = false);
+                                } else {
+                                  setSheetState(() => isSpeaking = true);
+                                  _flutterTts.setCompletionHandler(() {
+                                    setSheetState(() => isSpeaking = false);
+                                  });
+                                  await _flutterTts.speak(aiResponse);
+                                }
+                              },
+                              icon: Icon(isSpeaking ? Icons.stop : Icons.volume_up, size: 18),
+                              label: Text(isSpeaking ? "Stop" : "Listen"),
+                              style: ElevatedButton.styleFrom(
+                                foregroundColor: Colors.white, backgroundColor: isSpeaking ? Colors.redAccent : Colors.orangeAccent,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                            ),
+                            ElevatedButton.icon(
+                              onPressed: () {
+                                Clipboard.setData(ClipboardData(text: aiResponse));
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('✅ Text Copied!'), backgroundColor: Colors.green),
+                                );
+                              },
+                              icon: const Icon(Icons.copy, size: 18),
+                              label: const Text("Copy"),
+                              style: ElevatedButton.styleFrom(
+                                foregroundColor: Colors.deepPurple, backgroundColor: Colors.deepPurple.shade50,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                            ),
+                            ElevatedButton.icon(
+                              onPressed: () async {
+                                await _saveNoteForCurrentPdf(aiResponse);
+                                String fName = _selectedPdf!.path.split('/').last;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('📝 Note Saved for "$fName"!'), backgroundColor: Colors.blueAccent),
+                                );
+                              },
+                              icon: const Icon(Icons.save_alt, size: 18),
+                              label: const Text("Save Note"),
+                              style: ElevatedButton.styleFrom(
+                                foregroundColor: Colors.white, backgroundColor: Colors.deepPurpleAccent,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
-                  // --- END SCROLL CHANGE ---
                   
                   const SizedBox(height: 24),
                 ],
@@ -515,7 +610,10 @@ class _HomeScreenState extends State<HomeScreen> {
           }
         );
       }
-    );
+    ).whenComplete(() {
+      // Jab user BottomSheet band karega, toh AI ka bolna turant band ho jayega
+      _flutterTts.stop();
+    });
   }
 
   @override
@@ -553,16 +651,16 @@ class _HomeScreenState extends State<HomeScreen> {
               },
             ),
             const Divider(),
-                        ListTile(
+            ListTile(
               leading: const Icon(Icons.menu_book, color: Colors.green),
               title: const Text('My Smart Notes', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
               onTap: () async { 
                 Navigator.pop(context); 
                 await Navigator.push(context, MaterialPageRoute(builder: (context) => const MyNotesScreen())); 
-                _loadRecentPdfs(); // Taaki agar nayi PDF bani ho toh Recent me dikh jaye
+                _loadRecentPdfs(); 
               },
             ),
-            const Divider(), // Iske baad "PDF TOOLS" shuru ho jata hai
+            const Divider(), 
 
             ListTile(
               leading: const Icon(Icons.folder_open, color: Colors.black87),

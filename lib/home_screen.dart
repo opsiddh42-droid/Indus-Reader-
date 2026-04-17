@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart'; 
-import 'package:flutter/services.dart'; // <--- NAYA IMPORT COPY KE LIYE
+import 'package:flutter/services.dart'; 
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
@@ -7,7 +7,7 @@ import 'package:google_mlkit_document_scanner/google_mlkit_document_scanner.dart
 import 'package:shared_preferences/shared_preferences.dart'; 
 import 'package:receive_sharing_intent/receive_sharing_intent.dart'; 
 import 'package:flutter_markdown/flutter_markdown.dart'; 
-import 'package:flutter_tts/flutter_tts.dart'; // <--- NAYA IMPORT VOICE/AUDIOBOOK KE LIYE
+import 'package:flutter_tts/flutter_tts.dart'; 
 import 'dart:async'; 
 import 'dart:io';
 import 'dart:ui'; 
@@ -27,6 +27,7 @@ import 'image_to_pdf_screen.dart';
 import 'bulk_modify_screen.dart'; 
 import 'ai_service.dart'; 
 import 'my_notes_screen.dart'; 
+import 'mcq_test_screen.dart'; // <--- NAYA IMPORT MCQ TEST KE LIYE
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -52,7 +53,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isNightMode = false;
 
   final LocalAIService _aiService = LocalAIService(); 
-  final FlutterTts _flutterTts = FlutterTts(); // <--- TTS KA ENGINE INITIALIZE KIYA
+  final FlutterTts _flutterTts = FlutterTts(); 
 
   StreamSubscription? _intentDataStreamSubscription;
 
@@ -80,11 +81,10 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     _intentDataStreamSubscription?.cancel();
-    _flutterTts.stop(); // <--- APP BAND HOTE HI AUDIO BHI BAND
+    _flutterTts.stop(); 
     super.dispose();
   }
 
-  // --- AUTO SMART NOTE SAVER ---
   Future<void> _saveNoteForCurrentPdf(String note) async {
     if (_selectedPdf == null) return;
     String pdfName = _selectedPdf!.path.split('/').last; 
@@ -369,11 +369,215 @@ class _HomeScreenState extends State<HomeScreen> {
     return page < 0 ? 0 : page;
   }
 
+  // ================= NAYE AI SETTINGS DIALOGS =================
+
+  void _openMCQSettings() {
+    int startPage = 1;
+    int endPage = _pdfViewerController.pageCount > 0 ? _pdfViewerController.pageCount : 1;
+    String selectedLevel = 'Moderate';
+    String selectedLang = 'English';
+    double qCount = 10;
+    bool isGenerating = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: _isNightMode ? Colors.grey.shade900 : Colors.white,
+              title: Text("Setup MCQ Test", style: TextStyle(color: _isNightMode ? Colors.white : Colors.black, fontWeight: FontWeight.bold)),
+              content: isGenerating
+                  ? const SizedBox(height: 100, child: Center(child: CircularProgressIndicator(color: Colors.deepPurpleAccent)))
+                  : SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextFormField(
+                                  initialValue: startPage.toString(),
+                                  keyboardType: TextInputType.number,
+                                  style: TextStyle(color: _isNightMode ? Colors.white : Colors.black),
+                                  decoration: const InputDecoration(labelText: "Start Page", border: OutlineInputBorder()),
+                                  onChanged: (val) => startPage = int.tryParse(val) ?? 1,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: TextFormField(
+                                  initialValue: endPage.toString(),
+                                  keyboardType: TextInputType.number,
+                                  style: TextStyle(color: _isNightMode ? Colors.white : Colors.black),
+                                  decoration: const InputDecoration(labelText: "End Page", border: OutlineInputBorder()),
+                                  onChanged: (val) => endPage = int.tryParse(val) ?? endPage,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          DropdownButtonFormField<String>(
+                            value: selectedLevel,
+                            dropdownColor: _isNightMode ? Colors.grey.shade800 : Colors.white,
+                            style: TextStyle(color: _isNightMode ? Colors.white : Colors.black),
+                            decoration: const InputDecoration(labelText: "Difficulty Level", border: OutlineInputBorder()),
+                            items: ['Easy', 'Moderate', 'Hard'].map((lvl) => DropdownMenuItem(value: lvl, child: Text(lvl))).toList(),
+                            onChanged: (val) => setDialogState(() => selectedLevel = val!),
+                          ),
+                          const SizedBox(height: 16),
+                          DropdownButtonFormField<String>(
+                            value: selectedLang,
+                            dropdownColor: _isNightMode ? Colors.grey.shade800 : Colors.white,
+                            style: TextStyle(color: _isNightMode ? Colors.white : Colors.black),
+                            decoration: const InputDecoration(labelText: "Language", border: OutlineInputBorder()),
+                            items: ['Hindi', 'English'].map((lng) => DropdownMenuItem(value: lng, child: Text(lng))).toList(),
+                            onChanged: (val) => setDialogState(() => selectedLang = val!),
+                          ),
+                          const SizedBox(height: 16),
+                          Text("Number of Questions: ${qCount.toInt()}", style: TextStyle(color: _isNightMode ? Colors.white : Colors.black)),
+                          Slider(
+                            value: qCount,
+                            min: 1, max: 50, divisions: 49,
+                            activeColor: Colors.deepPurpleAccent,
+                            onChanged: (val) => setDialogState(() => qCount = val),
+                          ),
+                        ],
+                      ),
+                    ),
+              actions: [
+                if (!isGenerating)
+                  TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+                if (!isGenerating)
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurpleAccent, foregroundColor: Colors.white),
+                    onPressed: () async {
+                      setDialogState(() => isGenerating = true);
+                      
+                      String response = await _aiService.generateMCQs(
+                        pdfFilePath: _selectedPdf!.path,
+                        startPage: startPage,
+                        endPage: endPage,
+                        count: qCount.toInt(),
+                        level: selectedLevel,
+                        language: selectedLang,
+                      );
+
+                      if (mounted) {
+                        Navigator.pop(context); // Close dialog
+                        if (response.startsWith("ERROR")) {
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Generation Failed: $response')));
+                        } else {
+                          // Open Test Screen
+                          Navigator.push(context, MaterialPageRoute(
+                            builder: (context) => MCQTestScreen(aiJsonResponse: response)
+                          ));
+                        }
+                      }
+                    },
+                    child: const Text("Generate & Start"),
+                  ),
+              ],
+            );
+          }
+        );
+      }
+    );
+  }
+
+  void _openAdvancedToolSettings(String toolType) { 
+    int startPage = 1;
+    int endPage = _pdfViewerController.pageCount > 0 ? _pdfViewerController.pageCount : 1;
+    String selectedLevel = 'Moderate';
+    bool isGenerating = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: _isNightMode ? Colors.grey.shade900 : Colors.white,
+              title: Text(toolType == 'summary' ? "Generate Summary" : "Generate Short Notes", style: TextStyle(color: _isNightMode ? Colors.white : Colors.black, fontWeight: FontWeight.bold)),
+              content: isGenerating
+                  ? const SizedBox(height: 100, child: Center(child: CircularProgressIndicator(color: Colors.deepPurpleAccent)))
+                  : Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(child: TextFormField(initialValue: startPage.toString(), keyboardType: TextInputType.number, style: TextStyle(color: _isNightMode ? Colors.white : Colors.black), decoration: const InputDecoration(labelText: "Start Page", border: OutlineInputBorder()), onChanged: (val) => startPage = int.tryParse(val) ?? 1)),
+                            const SizedBox(width: 10),
+                            Expanded(child: TextFormField(initialValue: endPage.toString(), keyboardType: TextInputType.number, style: TextStyle(color: _isNightMode ? Colors.white : Colors.black), decoration: const InputDecoration(labelText: "End Page", border: OutlineInputBorder()), onChanged: (val) => endPage = int.tryParse(val) ?? endPage)),
+                          ],
+                        ),
+                        if (toolType == 'notes') ...[
+                          const SizedBox(height: 16),
+                          DropdownButtonFormField<String>(
+                            value: selectedLevel, dropdownColor: _isNightMode ? Colors.grey.shade800 : Colors.white, style: TextStyle(color: _isNightMode ? Colors.white : Colors.black), decoration: const InputDecoration(labelText: "Detail Level", border: OutlineInputBorder()),
+                            items: ['Brief', 'Moderate', 'Detailed'].map((lvl) => DropdownMenuItem(value: lvl, child: Text(lvl))).toList(),
+                            onChanged: (val) => setDialogState(() => selectedLevel = val!),
+                          ),
+                        ]
+                      ],
+                    ),
+              actions: [
+                if (!isGenerating) TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+                if (!isGenerating)
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurpleAccent, foregroundColor: Colors.white),
+                    onPressed: () async {
+                      setDialogState(() => isGenerating = true);
+                      
+                      String response = toolType == 'summary' 
+                        ? await _aiService.generateSummary(pdfFilePath: _selectedPdf!.path, startPage: startPage, endPage: endPage)
+                        : await _aiService.generateShortNotes(pdfFilePath: _selectedPdf!.path, startPage: startPage, endPage: endPage, level: selectedLevel);
+
+                      if (mounted) {
+                        Navigator.pop(context); // Close dialog
+                        _showAIResultDialog(toolType == 'summary' ? "Summary" : "Short Notes", response);
+                      }
+                    },
+                    child: const Text("Generate"),
+                  ),
+              ],
+            );
+          }
+        );
+      }
+    );
+  }
+
+  void _showAIResultDialog(String title, String content) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: _isNightMode ? Colors.grey.shade900 : Colors.white,
+        title: Text(title, style: TextStyle(color: _isNightMode ? Colors.white : Colors.black)),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: MarkdownBody(data: content, styleSheet: MarkdownStyleSheet(p: TextStyle(color: _isNightMode ? Colors.white70 : Colors.black87))),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () { Clipboard.setData(ClipboardData(text: content)); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Copied to clipboard'))); }, child: const Text("Copy")),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Close")),
+        ],
+      )
+    );
+  }
+
+  // ==============================================================
+
   void _showAIDialog() {
     TextEditingController commandController = TextEditingController();
     bool isLoading = false;
     String aiResponse = "";
-    bool isSpeaking = false; // <--- AUDIO STATE
+    bool isSpeaking = false; 
 
     showModalBottomSheet(
       context: context,
@@ -406,35 +610,44 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 16),
                   
+                  // --- UPDATED ACTION CHIPS ---
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
                       children: [
                         ActionChip(
                           avatar: const Icon(Icons.summarize, size: 16, color: Colors.white),
-                          label: const Text("Summarize", style: TextStyle(color: Colors.white)),
+                          label: const Text("Summarize (Multi-page)", style: TextStyle(color: Colors.white)),
                           backgroundColor: Colors.blueAccent,
-                          onPressed: () => commandController.text = "Is page ka short summary banao",
+                          onPressed: () {
+                            Navigator.pop(context); 
+                            _openAdvancedToolSettings('summary'); 
+                          },
                         ),
                         const SizedBox(width: 8),
                         ActionChip(
                           avatar: const Icon(Icons.quiz, size: 16, color: Colors.white),
-                          label: const Text("Create MCQs", style: TextStyle(color: Colors.white)),
+                          label: const Text("Create MCQs (Test Mode)", style: TextStyle(color: Colors.white)),
                           backgroundColor: Colors.orangeAccent,
-                          onPressed: () => commandController.text = "Is page se 3 MCQ banao with answers",
+                          onPressed: () {
+                            Navigator.pop(context); 
+                            _openMCQSettings(); 
+                          },
                         ),
                         const SizedBox(width: 8),
                         ActionChip(
                           avatar: const Icon(Icons.edit_note, size: 16, color: Colors.white),
-                          label: const Text("Short Notes", style: TextStyle(color: Colors.white)),
+                          label: const Text("Short Notes (Multi-page)", style: TextStyle(color: Colors.white)),
                           backgroundColor: Colors.teal,
-                          onPressed: () => commandController.text = "Is page ke important short notes banao",
+                          onPressed: () {
+                            Navigator.pop(context);
+                            _openAdvancedToolSettings('notes');
+                          },
                         ),
                         const SizedBox(width: 8),
-                        // --- NAYA VIP BUTTON: TRANSLATOR ---
                         ActionChip(
                           avatar: const Icon(Icons.translate, size: 16, color: Colors.white),
-                          label: const Text("Translate (Hindi)", style: TextStyle(color: Colors.white)),
+                          label: const Text("Translate Page (Hindi)", style: TextStyle(color: Colors.white)),
                           backgroundColor: Colors.purpleAccent,
                           onPressed: () => commandController.text = "Is page ko completely Hindi mein translate karo",
                         ),
@@ -459,7 +672,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         onPressed: isLoading ? null : () async {
                           if (commandController.text.isEmpty) return;
                           
-                          // Naya sawal poochte hi purana audio band karo
                           if (isSpeaking) {
                             await _flutterTts.stop();
                             isSpeaking = false;
@@ -505,7 +717,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 16),
                   
-                  // --- UI UPDATE: MARKDOWN AUR 3 VIP BUTTONS (LISTEN, COPY, SAVE) ---
                   if (aiResponse.isNotEmpty)
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -543,7 +754,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         const SizedBox(height: 12),
                         
-                        // --- TEENO SMART BUTTONS YAHAN HAIN ---
                         Wrap(
                           spacing: 8,
                           runSpacing: 8,
@@ -611,7 +821,6 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       }
     ).whenComplete(() {
-      // Jab user BottomSheet band karega, toh AI ka bolna turant band ho jayega
       _flutterTts.stop();
     });
   }

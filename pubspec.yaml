@@ -12,7 +12,7 @@ dependencies:
   # In sabhi libraries ko 'any' kar diya hai taaki koi version error na aaye
   syncfusion_flutter_pdfviewer: any
   syncfusion_flutter_pdf: any
-  file_picker: any
+  file_picker: ^8.0.0
   shared_preferences: any
   path_provider: any
   google_mlkit_text_recognition: any

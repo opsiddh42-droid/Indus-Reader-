@@ -19,7 +19,7 @@ dependencies:
   # Document Scanner ke liye library
   google_mlkit_document_scanner: any
   receive_sharing_intent: ^1.6.2
-  
+  confetti: ^0.8.0
   # --- CLOUD AI & SECURITY DEPENDENCIES ---
   google_generative_ai: ^0.4.6
   flutter_dotenv: ^5.1.0

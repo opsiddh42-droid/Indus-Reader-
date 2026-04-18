@@ -19,7 +19,6 @@ class LocalAIService {
         return;
       }
 
-      // YAHAN EXACT MODEL NAME UPDATE KAR DIYA HAI: gemini-3.1-flash-lite-preview
       _model = GenerativeModel(model: 'gemini-3.1-flash-lite-preview', apiKey: apiKey);
       isModelLoaded = true;
       modelStatus = "AI Model Ready!";
@@ -77,7 +76,6 @@ class LocalAIService {
     try {
       String pdfText = await extractTextFromCurrentPage(pdfFilePath, pageNumber);
 
-      // Agar digital PDF hai (Text easily mil gaya)
       if (pdfText.trim().length > 20) {
         String prompt = """
         You are an intelligent and helpful PDF reading assistant. 
@@ -95,8 +93,6 @@ class LocalAIService {
         final response = await _model.generateContent([Content.text(prompt)]);
         return response.text ?? "AI ne koi jawab nahi diya.";
       } 
-      
-      // Agar scanned photo / image PDF hai (Vision OCR trigger hoga)
       else {
         Uint8List pageBytes = await extractPageAsPdfBytes(pdfFilePath, pageNumber);
 
@@ -124,10 +120,9 @@ class LocalAIService {
   }
 
   // ====================================================================
-  // NAYE FUNCTIONS (MULTI-PAGE MCQ, SUMMARY AUR SHORT NOTES KE LIYE)
+  // UPDATED FUNCTIONS: ADVANCED PROMPTS ADDED
   // ====================================================================
 
-  // Selected pages ko original PDF se nikal kar ek nayi PDF (bytes) banayega
   Future<Uint8List> extractMultiplePagesAsPdfBytes(String pdfFilePath, int startPage, int endPage) async {
     PdfDocument originalDoc = PdfDocument(inputBytes: File(pdfFilePath).readAsBytesSync());
     PdfDocument newDoc = PdfDocument();
@@ -148,7 +143,7 @@ class LocalAIService {
     return Uint8List.fromList(bytes);
   }
 
-  // MCQ Generate (Direct PDF attach karke)
+  // UPDATED: MCQ Generate
   Future<String> generateMCQs({
     required String pdfFilePath, 
     required int startPage, 
@@ -163,18 +158,23 @@ class LocalAIService {
       Uint8List pdfBytes = await extractMultiplePagesAsPdfBytes(pdfFilePath, startPage, endPage);
 
       final prompt = TextPart("""
-      You are an expert quiz creator. I have attached a PDF document.
-      Generate $count Multiple Choice Questions (MCQs) in $language language based strictly on the attached PDF.
-      The difficulty level should be $level.
+      You are an expert educator and quiz creator. I have attached a PDF document.
+      Generate $count Multiple Choice Questions (MCQs) in $language language based on the core topic of the attached PDF.
       
-      CRITICAL RULE: Return the response ONLY as a valid JSON array. Do not add any extra text or markdown formatting.
+      CRITICAL INSTRUCTIONS FOR QUALITY:
+      1. Difficulty Level: $level.
+      2. Do not just copy lines from the PDF. Use your own external knowledge to create insightful, application-based, and challenging questions related to the PDF's topic.
+      3. Explanation: Provide a highly detailed, well-structured explanation. Add extra relevant facts, context, or formulas from your own knowledge to enrich the answer.
+      4. DO NOT use phrases like "According to the text", "As per the PDF", or "Here is the explanation". Just state the facts directly like an expert textbook.
+      
+      CRITICAL RULE: Return the response ONLY as a valid JSON array. Do not add any extra text.
       Format:
       [
         {
           "question": "Question text here?",
-          "options": ["Option 1", "Option 2", "Option 3", "Option 4"],
+          "options": ["Option A", "Option B", "Option C", "Option D"],
           "answer": "Correct Option Exactly as it appears in the options array",
-          "explanation": "Detailed explanation for the answer"
+          "explanation": "Detailed explanation with extra facts and structure"
         }
       ]
       """);
@@ -186,7 +186,6 @@ class LocalAIService {
       ]);
       
       String resText = response.text ?? "[]";
-      // Markdown clean-up incase AI outputs it
       resText = resText.replaceAll("```json", "").replaceAll("```", "").trim();
       return resText;
     } catch (e) {
@@ -194,7 +193,7 @@ class LocalAIService {
     }
   }
 
-  // Summarize (Direct PDF attach karke)
+  // UPDATED: Summarize (Strictly Hindi + Structured + Extra Facts)
   Future<String> generateSummary({
     required String pdfFilePath, 
     required int startPage, 
@@ -205,7 +204,16 @@ class LocalAIService {
     try {
       Uint8List pdfBytes = await extractMultiplePagesAsPdfBytes(pdfFilePath, startPage, endPage);
 
-      final prompt = TextPart("Please provide a well-structured and comprehensive summary of the attached PDF document.");
+      final prompt = TextPart("""
+      You are an expert summarizer. Analyze the attached PDF and provide a highly structured and comprehensive summary.
+      
+      CRITICAL INSTRUCTIONS:
+      1. The summary MUST be generated in strictly HINDI language (Devanagari script).
+      2. Do not just translate the document. Enhance the summary by adding relevant external facts, context, and background information from your own knowledge base to make it more educational.
+      3. Format the summary beautifully using headings, subheadings, and bullet points.
+      4. DO NOT use filler phrases like "This document says", "Here is the summary", or "As per the text". Start directly with the main content.
+      """);
+
       final pdfPart = DataPart('application/pdf', pdfBytes);
 
       final response = await _model.generateContent([
@@ -218,7 +226,7 @@ class LocalAIService {
     }
   }
 
-  // Short Notes (Direct PDF attach karke)
+  // UPDATED: Short Notes (Strictly Hindi + Bullet Points + Extra Facts)
   Future<String> generateShortNotes({
     required String pdfFilePath, 
     required int startPage, 
@@ -230,7 +238,17 @@ class LocalAIService {
     try {
       Uint8List pdfBytes = await extractMultiplePagesAsPdfBytes(pdfFilePath, startPage, endPage);
 
-      final prompt = TextPart("Create crisp, concise, and highly informative short notes in bullet points from the attached PDF document. The detail level should be $level.");
+      final prompt = TextPart("""
+      You are an expert academic note-taker. Create crisp, concise, and highly informative short notes from the attached PDF document.
+      
+      CRITICAL INSTRUCTIONS:
+      1. The short notes MUST be generated strictly in HINDI language (Devanagari script).
+      2. Detail Level: $level.
+      3. Enhance the notes: Add important extra facts, historical context, or scientific details from your own knowledge base that are relevant to the topic but might be missing in the text.
+      4. Structure: Use a highly readable format with bold headings, clear bullet points, and numbered lists where necessary. Make it perfect for exam revision.
+      5. DO NOT use conversational fillers like "Here are your notes" or "According to the PDF". Write it like a professional study material.
+      """);
+
       final pdfPart = DataPart('application/pdf', pdfBytes);
 
       final response = await _model.generateContent([

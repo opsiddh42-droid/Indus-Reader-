@@ -183,7 +183,7 @@ class _MCQTestScreenState extends State<MCQTestScreen> {
             alignment: Alignment.topCenter,
             child: ConfettiWidget(
               confettiController: _confettiController,
-              blastDirectionality: 3.14 / 2, // Niche ki taraf
+              blastDirection: 3.14 / 2, // <--- ERROR YAHAN THEEK KIYA HAI (blastDirection)
               maxBlastForce: 20,
               minBlastForce: 10,
               emissionFrequency: 0.05,
